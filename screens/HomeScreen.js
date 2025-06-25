@@ -2,7 +2,7 @@ import React from "react";
 import { SafeAreaView, View, Text, StyleSheet } from "react-native";
 
 export default function HomeScreen() {
-  const helloName = "John"; // we can change this later to work dynamically
+  let helloName = "John"; // we can change this later to work dynamically
 
   return (
     <SafeAreaView style={styles.container}>
