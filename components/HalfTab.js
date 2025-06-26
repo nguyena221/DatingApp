@@ -3,7 +3,7 @@ import {View, StyleSheet, Dimensions} from "react-native";
 
 const { width } = Dimensions.get("window");
 
-export default function EventTab() {
+export default function HalfTab() {
   return <View style={styles.eventTabs}></View>;
 }
 

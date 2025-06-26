@@ -1,14 +1,14 @@
 import React from "react";
 import { View, StyleSheet } from "react-native";
-import EventTab from "./EventTab";
+import HalfTab from "./HalfTab";
 
 export default function EventBox() {
   return (
     <View style={styles.container}>
-      <EventTab />
-      <EventTab />
-      <EventTab />
-      <EventTab />
+      <HalfTab />
+      <HalfTab />
+      <HalfTab />
+      <HalfTab />
       {/* Add more EventTabs as needed */}
     </View>
   );
