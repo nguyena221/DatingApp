@@ -50,7 +50,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 30,
     width: 200,
-    height: 60, // Reduced height
+    height: 60, 
     backgroundColor: "#fff",
     borderRadius: 35,
     borderTopWidth: 0,
