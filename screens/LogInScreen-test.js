@@ -5,37 +5,50 @@ import { Ionicons } from "@expo/vector-icons";
 import LoginPanel from "../components/LoginPanel";
 
 export default function LogInScreenTest() {
-  const [email, setEmail] = useState("test1@example.com");
+  const [email, setEmail] = useState("test2@example.com");
   const [pass, setPass] = useState("pass123");
-  const [firstN, setFirstN] = useState("Jane");
+  const [firstN, setFirstN] = useState("Annie");
   const [lastN, setLastN] = useState("Doe");
-  const [birthDate, setBirthDate] = useState("2000-01-01");
+  const [birthDate, setBirthDate] = useState("01/01/2001");
   const [loginStatus, setLoginStatus] = useState("");
   const [isLogin, setIsLogin] = useState(true);
   const [activeTab, setActiveTab] = useState("LOGIN");
 
+  const handleCheck = () => {
+    checkTestUser(email, pass)
+      .then((res) => {
+        if (res.success) {
+          setLoginStatus("Login success!");
+          Alert.alert("Success", res.message);
+        } else {
+          setLoginStatus("Login failed.");
+          Alert.alert("Failed", res.message);
+        }
+      })
+      .catch((err) => {
+        Alert.alert("Error", err.message);
+      });
+  };
+
   const handleStore = () => {
-    storeTestUser({
+    const formattedBirthDate = new Date(birthDate).toLocaleDateString("en-US");
+
+    const user = {
       email,
       password: pass,
       firstName: firstN,
       lastName: lastN,
-      birthDate,
-    })
-      .then(() => Alert.alert("Success", "User stored successfully!"))
-      .catch((err) => Alert.alert("Error", err.message));
-  };
+      birthDate: formattedBirthDate,
+    };
 
-  const handleCheck = () => {
-    checkTestUser(email, pass, (success) => {
-      if (success) {
-        setLoginStatus("Login success!");
-        Alert.alert("Success", "Login credentials match!");
-      } else {
-        setLoginStatus("Login failed.");
-        Alert.alert("Failed", "Credentials incorrect or user not found.");
-      }
-    });
+    storeTestUser(user)
+      .then(() => {
+        setLoginStatus("Registration success!");
+        Alert.alert("Success", "User registered successfully.");
+      })
+      .catch((err) => {
+        Alert.alert("Error", err.message);
+      });
   };
 
   return (
@@ -51,9 +64,7 @@ export default function LogInScreenTest() {
               setIsLogin(true);
             }}
           >
-            <Text
-              style={[styles.tab, activeTab === "LOGIN" && styles.activeTab]}
-            >
+            <Text style={[styles.tab, activeTab === "LOGIN" && styles.activeTab]}>
               Login
             </Text>
           </TouchableOpacity>
@@ -64,9 +75,7 @@ export default function LogInScreenTest() {
               setIsLogin(false);
             }}
           >
-            <Text
-              style={[styles.tab, activeTab === "REGISTER" && styles.activeTab]}
-            >
+            <Text style={[styles.tab, activeTab === "REGISTER" && styles.activeTab]}>
               Register
             </Text>
           </TouchableOpacity>

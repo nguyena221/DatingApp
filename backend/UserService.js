@@ -1,9 +1,22 @@
-import { database } from "./FirebaseConfig";
-import { ref, set, get, child, onValue } from "firebase/database";
+//import { database } from "./FirebaseConfig";
+//import { ref, set, get, child, onValue } from "firebase/database";
+// UserService.js
+import { db } from "./FirebaseConfig";
 
-export function storeTestUser(user) {
-  const userID = user.email.replace(/\./g, "_");
-  return set(ref(database, "users/" + userID), {
+import {
+  doc,
+  setDoc,
+  getDoc,
+  onSnapshot,
+} from "firebase/firestore";
+
+function sanitizeEmail(email) {
+  return email.replace(/\./g, "_");
+}
+
+export async function storeTestUser(user) {
+  const userID = sanitizeEmail(user.email);
+  await setDoc(doc(db, "users", userID), {
     email: user.email,
     password: user.password,
     firstName: user.firstName,
@@ -13,12 +26,15 @@ export function storeTestUser(user) {
 }
 
 export async function checkTestUser(email, password) {
-  const userID = email.replace(/\./g, "_");
-  const dbRef = ref(database);
-  const snapshot = await get(child(dbRef, `users/${userID}`));
-  if (!snapshot.exists()) return { success: false, message: "User not found" };
+  const userID = sanitizeEmail(email);
+  const docRef = doc(db, "users", userID);
+  const docSnap = await getDoc(docRef);
 
-  const data = snapshot.val();
+  if (!docSnap.exists()) {
+    return { success: false, message: "User not found" };
+  }
+
+  const data = docSnap.data();
   if (data.password === password) {
     return { success: true, message: "Login success!" };
   } else {
@@ -27,10 +43,13 @@ export async function checkTestUser(email, password) {
 }
 
 export function listenToTestUser(email, callback) {
-  const userID = email.replace(/\./g, "_");
-  const userRef = ref(database, `users/${userID}`);
-  onValue(userRef, (snapshot) => {
-    const data = snapshot.val();
-    callback(data ?? null);
+  const userID = sanitizeEmail(email);
+  const docRef = doc(db, "users", userID);
+  return onSnapshot(docRef, (docSnap) => {
+    if (docSnap.exists()) {
+      callback(docSnap.data());
+    } else {
+      callback(null);
+    }
   });
 }
