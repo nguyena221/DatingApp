@@ -1,137 +1,56 @@
-import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  ActivityIndicator,
-} from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import React, { useState } from "react";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import LoginPanel from "../components/LoginPanel";
-import { useNavigation } from "@react-navigation/native";
+import AuthTabs from "../components/LoginTabs";
+import SubmitButton from "../components/SubmitButton";
+import { UseLoginHandlers } from "../hook/UseLoginHandlers";
 
-
-const LoginScreen = () => {
+export default function LoginScreen() {
+  const [email, setEmail] = useState("test2@example.com");
+  const [pass, setPass] = useState("pass123");
+  const [firstN, setFirstN] = useState("Annie");
+  const [lastN, setLastN] = useState("Doe");
+  const [birthDate, setBirthDate] = useState("01/01/2001");
+  const [loginStatus, setLoginStatus] = useState("");
   const [isLogin, setIsLogin] = useState(true);
   const [activeTab, setActiveTab] = useState("LOGIN");
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [birthday, setBirthday] = useState("");
-
-  const [loading, setLoading] = useState(false);
-  const navigation = useNavigation();
-
-  const handleAuth = async () => {
-    if (
-      !email ||
-      !password ||
-      (!isLogin && (!firstName || !lastName || !birthday))
-    ) {
-      Alert.alert("Missing Fields", "Please fill in all required fields.");
-      return;
-    }
-
-    const emailRegex = /\S+@\S+\.\S+/;
-    if (!emailRegex.test(email)) {
-      Alert.alert("Invalid Email", "Please enter a valid email address.");
-      return;
-    }
-
-    if (password.length < 6) {
-      Alert.alert("Weak Password", "Password must be at least 6 characters.");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      if (isLogin) {
-        await loginUser(email, password);
-        Alert.alert("Logged In", "Welcome back!");
-      } else {
-        await registerUser(email, password, {
-          firstName,
-          lastName,
-          birthday,
-        });
-        Alert.alert("Signed Up", `Welcome ${firstName}!`);
-      }
-    } catch (err) {
-      Alert.alert("Authentication Error", err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { handleCheck, handleStore } = UseLoginHandlers({
+    email,
+    pass,
+    firstN,
+    lastN,
+    birthDate,
+    setLoginStatus,
+  });
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>DatingApp</Text>
 
       <View style={styles.logPanel}>
-        {/* Tab Selector */}
-        <View style={styles.tabContainer}>
-          <TouchableOpacity
-            onPress={() => {
-              setActiveTab("LOGIN");
-              setIsLogin(true);
-            }}
-          >
-            <Text
-              style={[styles.tab, activeTab === "LOGIN" && styles.activeTab]}
-            >
-              Login
-            </Text>
-          </TouchableOpacity>
+        <AuthTabs
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          setIsLogin={setIsLogin}
+        />
 
-          <TouchableOpacity
-            onPress={() => {
-              setActiveTab("REGISTER");
-              setIsLogin(false);
-            }}
-          >
-            <Text
-              style={[styles.tab, activeTab === "REGISTER" && styles.activeTab]}
-            >
-              Register
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Form */}
         <LoginPanel
           isLogin={isLogin}
           email={email}
           setEmail={setEmail}
-          password={password}
-          setPassword={setPassword}
-          firstName={firstName}
-          setFirstName={setFirstName}
-          lastName={lastName}
-          setLastName={setLastName}
-          birthday={birthday}
-          setBirthday={setBirthday}
+          password={pass}
+          setPassword={setPass}
+          firstName={firstN}
+          setFirstName={setFirstN}
+          lastName={lastN}
+          setLastName={setLastN}
+          birthday={birthDate}
+          setBirthday={setBirthDate}
         />
 
-        {/* Loading Indicator */}
-        {loading && (
-          <ActivityIndicator
-            size="small"
-            color="#1b475d"
-            style={{ marginBottom: 10 }}
-          />
-        )}
-
         {/* Submit Button */}
-        <TouchableOpacity
-          style={[styles.loginButton, loading && { opacity: 0.5 }]}
-          onPress={handleAuth}
-          disabled={loading}
-        >
-          <Ionicons name="arrow-forward" size={28} color="#fff" />
-        </TouchableOpacity>
+        <SubmitButton onPress={isLogin ? handleCheck : handleStore} />
 
         {/* Links */}
         <TouchableOpacity>
@@ -148,9 +67,9 @@ const LoginScreen = () => {
       </View>
     </View>
   );
-};
+}
 
-const styles = StyleSheet.create({
+/* const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#8ebd9d",
@@ -221,6 +140,4 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: 14,
   },
-});
-
-export default LoginScreen;
+}); */
