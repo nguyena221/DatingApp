@@ -1,5 +1,6 @@
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import {View, Text, TouchableOpacity} from "react-native";
+import styles from "../styles/LoginScreenStyle"
 
 export default function AuthTabs({ activeTab, setActiveTab, setIsLogin }) {
   return (
@@ -28,21 +29,3 @@ export default function AuthTabs({ activeTab, setActiveTab, setIsLogin }) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  tabContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginBottom: 20,
-  },
-  tab: {
-    marginHorizontal: 20,
-    fontSize: 18,
-    color: "#888",
-  },
-  activeTab: {
-    color: "#1b475d",
-    fontWeight: "bold",
-    textDecorationLine: "underline",
-  },
-});

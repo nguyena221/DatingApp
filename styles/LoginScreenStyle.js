@@ -1,7 +1,7 @@
 import { StyleSheet } from "react-native";
 
 const styles = StyleSheet.create({
-  container: {
+  mainContainer: {
     flex: 1,
     backgroundColor: "#8ebd9d",
     justifyContent: "center",
@@ -28,6 +28,18 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 10,
     alignItems: "center",
+  },
+  loginPanelContainer: {
+    width: "100%",
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 8,
+    padding: 14,
+    marginBottom: 20,
+    fontSize: 16,
+    width: "100%",
   },
   tabContainer: {
     flexDirection: "row",
@@ -69,6 +81,7 @@ const styles = StyleSheet.create({
   switchText: {
     color: "#1b475d",
     textAlign: "center",
+    textDecorationLine: "underline",
     fontSize: 14,
   },
 });
