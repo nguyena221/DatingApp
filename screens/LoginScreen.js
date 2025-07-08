@@ -1,139 +1,84 @@
-import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  ActivityIndicator,
-} from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import React, { useState } from "react";
+import { View, Text, TouchableOpacity, Alert } from "react-native";
+import { useNavigation } from "@react-navigation/native"; // ✅ already imported
 import LoginPanel from "../components/LoginPanel";
-import { useNavigation } from "@react-navigation/native";
+import AuthTabs from "../components/LoginTabs";
+import SubmitButton from "../components/SubmitButton";
+import { UseLoginHandlers } from "../hook/UseLoginHandlers";
+import styles from "../styles/LoginScreenStyle";
 
+export default function LoginScreen() {
+  const navigation = useNavigation(); // ✅ add this to access navigation
 
-const LoginScreen = () => {
+  const [email, setEmail] = useState("test2@example.com");
+  const [pass, setPass] = useState("pass123");
+  const [firstN, setFirstN] = useState("Annie");
+  const [lastN, setLastN] = useState("Doe");
+  const [birthDate, setBirthDate] = useState("01/01/2001");
+  const [loginStatus, setLoginStatus] = useState("");
   const [isLogin, setIsLogin] = useState(true);
   const [activeTab, setActiveTab] = useState("LOGIN");
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [birthday, setBirthday] = useState("");
+  const { handleCheck, handleStore } = UseLoginHandlers({
+    email,
+    pass,
+    firstN,
+    lastN,
+    birthDate,
+    setLoginStatus,
+  });
 
-  const [loading, setLoading] = useState(false);
-  const navigation = useNavigation();
-
-  const handleAuth = async () => {
-    if (
-      !email ||
-      !password ||
-      (!isLogin && (!firstName || !lastName || !birthday))
-    ) {
-      Alert.alert("Missing Fields", "Please fill in all required fields.");
-      return;
+  const handleLogin = async () => {
+    const success = await handleCheck();
+    if (success) {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "Home" }],
+      });
+    } else {
+      Alert.alert("Login Failed", "Invalid email or password.");
     }
+  };
 
-    const emailRegex = /\S+@\S+\.\S+/;
-    if (!emailRegex.test(email)) {
-      Alert.alert("Invalid Email", "Please enter a valid email address.");
-      return;
-    }
-
-    if (password.length < 6) {
-      Alert.alert("Weak Password", "Password must be at least 6 characters.");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      if (isLogin) {
-        await loginUser(email, password);
-        Alert.alert("Logged In", "Welcome back!");
-      } else {
-        await registerUser(email, password, {
-          firstName,
-          lastName,
-          birthday,
-        });
-        Alert.alert("Signed Up", `Welcome ${firstName}!`);
-      }
-    } catch (err) {
-      Alert.alert("Authentication Error", err.message);
-    } finally {
-      setLoading(false);
+  const handleRegister = async () => {
+    const success = await handleStore();
+    if (success) {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "Home" }],
+      });
+    } else {
+      Alert.alert("Registration Failed", "Please check your input.");
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>DatingApp</Text>
+    <View style={styles.mainContainer}>
+      <Text style={styles.title}>GameDate</Text>
 
       <View style={styles.logPanel}>
-        {/* Tab Selector */}
-        <View style={styles.tabContainer}>
-          <TouchableOpacity
-            onPress={() => {
-              setActiveTab("LOGIN");
-              setIsLogin(true);
-            }}
-          >
-            <Text
-              style={[styles.tab, activeTab === "LOGIN" && styles.activeTab]}
-            >
-              Login
-            </Text>
-          </TouchableOpacity>
+        <AuthTabs
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          setIsLogin={setIsLogin}
+        />
 
-          <TouchableOpacity
-            onPress={() => {
-              setActiveTab("REGISTER");
-              setIsLogin(false);
-            }}
-          >
-            <Text
-              style={[styles.tab, activeTab === "REGISTER" && styles.activeTab]}
-            >
-              Register
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Form */}
         <LoginPanel
           isLogin={isLogin}
           email={email}
           setEmail={setEmail}
-          password={password}
-          setPassword={setPassword}
-          firstName={firstName}
-          setFirstName={setFirstName}
-          lastName={lastName}
-          setLastName={setLastName}
-          birthday={birthday}
-          setBirthday={setBirthday}
+          password={pass}
+          setPassword={setPass}
+          firstName={firstN}
+          setFirstName={setFirstN}
+          lastName={lastN}
+          setLastName={setLastN}
+          birthday={birthDate}
+          setBirthday={setBirthDate}
         />
 
-        {/* Loading Indicator */}
-        {loading && (
-          <ActivityIndicator
-            size="small"
-            color="#1b475d"
-            style={{ marginBottom: 10 }}
-          />
-        )}
+        <SubmitButton onPress={isLogin ? handleLogin : handleRegister} />
 
-        {/* Submit Button */}
-        <TouchableOpacity
-          style={[styles.loginButton, loading && { opacity: 0.5 }]}
-          onPress={handleAuth}
-          disabled={loading}
-        >
-          <Ionicons name="arrow-forward" size={28} color="#fff" />
-        </TouchableOpacity>
-
-        {/* Links */}
         <TouchableOpacity>
           <Text style={styles.forgotText}>Forgot Password?</Text>
         </TouchableOpacity>
@@ -148,79 +93,4 @@ const LoginScreen = () => {
       </View>
     </View>
   );
-};
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#8ebd9d",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 20,
-  },
-  title: {
-    color: "#1b475d",
-    fontSize: 40,
-    marginBottom: 40,
-    textAlign: "center",
-    fontWeight: "bold",
-  },
-  logPanel: {
-    backgroundColor: "#eee5c2",
-    borderRadius: 40,
-    paddingVertical: 40,
-    paddingHorizontal: 40,
-    width: "90%",
-    position: "relative",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 10,
-    alignItems: "center",
-  },
-  tabContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginBottom: 20,
-  },
-  tab: {
-    marginHorizontal: 20,
-    fontSize: 18,
-    color: "#888",
-  },
-  activeTab: {
-    color: "#1b475d",
-    fontWeight: "bold",
-    textDecorationLine: "underline",
-  },
-  loginButton: {
-    backgroundColor: "#1b475d",
-    borderRadius: 100,
-    width: 40,
-    height: 40,
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 10,
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 12,
-  },
-  forgotText: {
-    color: "#1b475d",
-    textAlign: "center",
-    fontSize: 14,
-    textDecorationLine: "underline",
-    marginBottom: 10,
-  },
-  switchText: {
-    color: "#1b475d",
-    textAlign: "center",
-    fontSize: 14,
-  },
-});
-
-export default LoginScreen;
+}

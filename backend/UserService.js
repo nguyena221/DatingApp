@@ -1,22 +1,23 @@
-//import { database } from "./FirebaseConfig";
-//import { ref, set, get, child, onValue } from "firebase/database";
-// UserService.js
-import { db } from "./FirebaseConfig";
-
 import {
   doc,
   setDoc,
   getDoc,
   onSnapshot,
+  collection,
+  addDoc, 
 } from "firebase/firestore";
+import {db} from "./FirebaseConfig" 
+
+const usersRef = collection(db, "users");
 
 function sanitizeEmail(email) {
   return email.replace(/\./g, "_");
 }
 
-export async function storeTestUser(user) {
+export async function storeUser(user) {
   const userID = sanitizeEmail(user.email);
-  await setDoc(doc(db, "users", userID), {
+  const userDocRef = doc(db, "users", userID);
+  await setDoc(userDocRef, {
     email: user.email,
     password: user.password,
     firstName: user.firstName,
@@ -40,16 +41,4 @@ export async function checkTestUser(email, password) {
   } else {
     return { success: false, message: "Incorrect password" };
   }
-}
-
-export function listenToTestUser(email, callback) {
-  const userID = sanitizeEmail(email);
-  const docRef = doc(db, "users", userID);
-  return onSnapshot(docRef, (docSnap) => {
-    if (docSnap.exists()) {
-      callback(docSnap.data());
-    } else {
-      callback(null);
-    }
-  });
 }
