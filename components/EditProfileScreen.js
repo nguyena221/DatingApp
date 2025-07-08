@@ -2,7 +2,8 @@ import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, Image, StatusBa
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getUserWithPersonality, storeSelectedBanners, uploadProfilePhoto, storeProfileBackgroundColor } from '../backend/UserService';
+import { getUserWithPersonality, storeSelectedBanners, uploadProfilePhoto, storeProfileBackgroundColor, calculateAge } from '../backend/UserService';
+import { useUser } from '../contexts/UserContext';
 import * as ImagePicker from 'expo-image-picker';
 
 const { height } = Dimensions.get('window');
@@ -16,6 +17,10 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
     const [selectedBanners, setSelectedBanners] = useState([]);
     const [quizStatus, setQuizStatus] = useState({ personality: false, lifestyle: false });
     const [uploading, setUploading] = useState(false);
+    const [userName, setUserName] = useState('Sarah Johnson');
+    const [userAge, setUserAge] = useState('24');
+    const [originalBgColor, setOriginalBgColor] = useState(selectedColor); // Store original color
+    const { currentUser } = useUser();
 
     const colorOptions = [
         { name: 'Light Blue', color: '#e3f2fd', id: 1 },
@@ -163,7 +168,7 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
     useEffect(() => {
         const loadUserData = async () => {
             try {
-                const userEmail = "test2@example.com"; // Replace with actual user email
+                const userEmail = currentUser?.email || "test2@example.com"; // Use current user or fallback
                 
                 // Load personality data
                 const personalityResult = await getUserWithPersonality(userEmail);
@@ -174,11 +179,24 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
                     personalityQuizData = personalityResult.user.personalityData;
                     lifestyleQuizData = personalityResult.user.personalityLifestyleData;
                     
+                    // Load user name and age
+                    if (personalityResult.user.firstName && personalityResult.user.lastName) {
+                        setUserName(`${personalityResult.user.firstName} ${personalityResult.user.lastName}`);
+                    }
+                    
+                    if (personalityResult.user.birthDate) {
+                        const age = calculateAge(personalityResult.user.birthDate);
+                        setUserAge(age.toString());
+                    }
+                    
                     // Load saved background color from database
                     if (personalityResult.user.profileBackgroundColor) {
                         setCurrentBgColor(personalityResult.user.profileBackgroundColor);
+                        setOriginalBgColor(personalityResult.user.profileBackgroundColor); // Store as original
                         // Also save to AsyncStorage for faster loading
                         await AsyncStorage.setItem('profileBackgroundColor', personalityResult.user.profileBackgroundColor);
+                    } else {
+                        setOriginalBgColor(currentBgColor); // Store current as original
                     }
                 }
 
@@ -210,24 +228,13 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
         loadUserData();
     }, []);
 
-    const handleColorChange = async (color) => {
+    const handleColorChange = (color) => {
+        // Only change the UI color, don't save to database or AsyncStorage yet
         setCurrentBgColor(color);
-        try {
-            // Save to both AsyncStorage and Firebase
-            await AsyncStorage.setItem('profileBackgroundColor', color);
-            
-            const userEmail = "test2@example.com"; // Replace with actual user email
-            const result = await storeProfileBackgroundColor(userEmail, color);
-            
-            if (!result.success) {
-                console.error("Failed to save color to database:", result.message);
-            }
-            
-            if (onColorChange) {
-                onColorChange(color);
-            }
-        } catch (e) {
-            console.error('[ERROR] Failed to save color', e);
+        
+        // Update parent component for immediate UI feedback if needed
+        if (onColorChange) {
+            onColorChange(color);
         }
     };
 
@@ -281,24 +288,65 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
     };
 
     const handleSave = async () => {
-        try {
-            // Save selected banners to database
-            const userEmail = "test2@example.com"; // Replace with actual user email
-            const result = await storeSelectedBanners(userEmail, selectedBanners);
-            
-            if (result.success) {
-                console.log("Banners saved successfully");
-            } else {
-                console.error("Failed to save banners:", result.message);
-            }
-        } catch (error) {
-            console.error("Error saving banners:", error);
+    try {
+        const userEmail = currentUser?.email || "test2@example.com";
+        
+        // Save selected banners to database
+        const bannersResult = await storeSelectedBanners(userEmail, selectedBanners);
+        
+        if (bannersResult.success) {
+            console.log("Banners saved successfully");
+        } else {
+            console.error("Failed to save banners:", bannersResult.message);
         }
+        
+        // Save background color to database if it changed
+        if (currentBgColor !== originalBgColor) {
+            const colorResult = await storeProfileBackgroundColor(userEmail, currentBgColor);
+            
+            if (colorResult.success) {
+                console.log("Background color saved successfully");
+                // Update AsyncStorage after successful database save
+                await AsyncStorage.setItem('profileBackgroundColor', currentBgColor);
+                // Update the original color so it doesn't revert next time
+                setOriginalBgColor(currentBgColor);
+            } else {
+                console.error("Failed to save background color:", colorResult.message);
+                // Optionally show an alert about the failure
+                Alert.alert("Warning", "Profile banners saved, but background color failed to save.");
+            }
+        }
+        
+    } catch (error) {
+        console.error("Error saving profile data:", error);
+        Alert.alert("Error", "Failed to save some profile changes.");
+    }
 
+    if (navigation) {
+        navigation.goBack();
+    }
+};
+
+    const handleCancel = async () => {
+        // Revert background color to original
+        setCurrentBgColor(originalBgColor);
+        
+        try {
+            // Only revert AsyncStorage if we actually changed something
+            if (currentBgColor !== originalBgColor) {
+                await AsyncStorage.setItem('profileBackgroundColor', originalBgColor);
+                if (onColorChange) {
+                    onColorChange(originalBgColor);
+                }
+            }
+        } catch (e) {
+            console.error('[ERROR] Failed to revert AsyncStorage', e);
+        }
         if (navigation) {
             navigation.goBack();
         }
     };
+
 
     const renderQuizPrompt = () => {
         if (!quizStatus.personality && !quizStatus.lifestyle) {
@@ -350,7 +398,7 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
                 >
                     {/* Header with Save Button */}
                     <View style={styles.headerContainer}>
-                        <TouchableOpacity onPress={() => navigation?.goBack()} style={styles.cancelButton}>
+                        <TouchableOpacity onPress={handleCancel} style={styles.cancelButton}>
                             <Text style={styles.cancelText}>Cancel</Text>
                         </TouchableOpacity>
                         <Text style={styles.headerTitle}>Edit Profile</Text>
@@ -386,11 +434,11 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
                         <View style={styles.profileInfoContainer}>
                             <View style={styles.profileInfoNameContainer}>
                                 <TouchableOpacity style={styles.editableField}>
-                                    <Text style={styles.nameText}>Sarah Johnson</Text>
+                                    <Text style={styles.nameText}>{userName}</Text>
                                     <Text style={styles.editHint}>Tap to edit</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity style={styles.editableField}>
-                                    <Text style={styles.ageText}>24</Text>
+                                    <Text style={styles.ageText}>{userAge}</Text>
                                     <Text style={styles.editHint}>Tap to edit</Text>
                                 </TouchableOpacity>
                             </View>

@@ -169,3 +169,22 @@ export async function storeProfileBackgroundColor(email, color) {
     return { success: false, message: "Failed to save background color" };
   }
 }
+
+export function calculateAge(birthDateString) {
+  try {
+    const birthDate = new Date(birthDateString);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    
+    return age;
+  } catch (error) {
+    console.error("Error calculating age:", error);
+    return "N/A";
+  }
+}
+

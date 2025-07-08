@@ -3,7 +3,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState, useEffect } from 'react';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getUserWithPersonality } from '../backend/UserService';
+import { getUserWithPersonality, calculateAge } from '../backend/UserService';
+import { useUser } from '../contexts/UserContext';
 
 const { height } = Dimensions.get('window');
 
@@ -11,7 +12,10 @@ export default function ProfilePageStart({ scrollY }) {
     const [bgColor, setBgColor] = useState('#e3f2fd');
     const [photoUrl, setPhotoUrl] = useState('');
     const [selectedBanners, setSelectedBanners] = useState([]);
+    const [userName, setUserName] = useState('Sarah Johnson');
+    const [userAge, setUserAge] = useState('24');
     const navigation = useNavigation();
+    const { currentUser } = useUser();
 
     const exploreMoreOpacity = scrollY ? scrollY.interpolate({
         inputRange: [0, height * 0.3],
@@ -51,10 +55,20 @@ export default function ProfilePageStart({ scrollY }) {
         React.useCallback(() => {
             const loadUserData = async () => {
                 try {
-                    const userEmail = "test2@example.com"; // Replace with actual user email
+                    const userEmail = currentUser?.email || "test2@example.com"; // Use current user or fallback
                     const result = await getUserWithPersonality(userEmail);
                     
                     if (result.success && result.user) {
+                        // Load user name and age
+                        if (result.user.firstName && result.user.lastName) {
+                            setUserName(`${result.user.firstName} ${result.user.lastName}`);
+                        }
+                        
+                        if (result.user.birthDate) {
+                            const age = calculateAge(result.user.birthDate);
+                            setUserAge(age.toString());
+                        }
+
                         // Load background color from database first
                         if (result.user.profileBackgroundColor) {
                             setBgColor(result.user.profileBackgroundColor);
@@ -170,8 +184,8 @@ export default function ProfilePageStart({ scrollY }) {
 
                     <View style={styles.profileInfoContainer}>
                         <View style={styles.profileInfoNameContainer}>
-                            <Text style={styles.nameText}>Sarah Johnson</Text>
-                            <Text style={styles.ageText}>24</Text>
+                            <Text style={styles.nameText}>{userName}</Text>
+                            <Text style={styles.ageText}>{userAge}</Text>
                         </View>
 
                         {/* Stats Container - Now shows banners from database */}
