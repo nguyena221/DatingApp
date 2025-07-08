@@ -10,7 +10,8 @@ import {
   Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { storePersonalityData } from '../backend/UserService';
+import { storePersonalityData, autoGenerateProfileBanners } from '../backend/UserService';
+import { useUser } from '../contexts/UserContext';
 
 const { width } = Dimensions.get('window');
 
@@ -556,24 +557,29 @@ const styles = StyleSheet.create({
 
 // Updated Firebase integration
 const QuizWithFirebase = () => {
+  const { currentUser } = useUser(); // Use the current logged-in user
+
   const handleQuizComplete = async (personalityData) => {
-    try {
-      const userEmail = "test2@example.com"; // Replace with actual logged-in user email
-      const result = await storePersonalityData(userEmail, personalityData);
+  try {
+    const userEmail = currentUser?.email || "test2@example.com";
+    const result = await storePersonalityData(userEmail, personalityData);
+    
+    if (result.success) {
+      // Auto-generate profile banners after saving personality data
+      await autoGenerateProfileBanners(userEmail);
       
-      if (result.success) {
-        Alert.alert(
-          'Quiz Complete!', 
-          `Your personality type (${personalityData.personalityType}) has been saved!`
-        );
-      } else {
-        Alert.alert('Error', result.message);
-      }
-    } catch (error) {
-      console.error('Error saving personality data:', error);
-      Alert.alert('Error', 'Failed to save your personality data.');
+      Alert.alert(
+        'Quiz Complete!', 
+        `Your personality type (${personalityData.personalityType}) has been saved!`
+      );
+    } else {
+      Alert.alert('Error', result.message);
     }
-  };
+  } catch (error) {
+    console.error('Error saving personality data:', error);
+    Alert.alert('Error', 'Failed to save your personality data.');
+  }
+};
 
   return <PersonalityQuizScreen onQuizComplete={handleQuizComplete} />;
 };

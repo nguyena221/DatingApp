@@ -13,6 +13,7 @@ import Animated, {
 import { NavigationContainer } from '@react-navigation/native';
 import {createStackNavigator} from '@react-navigation/stack';
 import SettingsPage from './SettingsPage';
+import LogoutButton from '../components/LogoutButton';
 
 const RootStack = createStackNavigator();
 
@@ -52,6 +53,7 @@ export default function DiscoverPage({ navigation }) {
     return(
         <SafeAreaView style={styles.container}>
 
+            <LogoutButton />
             //settings button
             <TouchableOpacity
             onPress = {() => {navigation.navigate('Settings')}}

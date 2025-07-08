@@ -10,7 +10,8 @@ import {
   Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { storeLifestyleData } from '../backend/UserService';
+import { storeLifestyleData, autoGenerateProfileBanners  } from '../backend/UserService';
+import { useUser } from '../contexts/UserContext';
 
 const { width } = Dimensions.get('window');
 
@@ -573,24 +574,29 @@ const styles = StyleSheet.create({
 
 // Updated Firebase integration for lifestyle quiz
 const LifestyleQuizWithFirebase = () => {
+  const { currentUser } = useUser(); // Use the current logged-in user
+
   const handleQuizComplete = async (lifestyleData) => {
-    try {
-      const userEmail = "test2@example.com"; // Replace with actual logged-in user email
-      const result = await storeLifestyleData(userEmail, lifestyleData);
+  try {
+    const userEmail = currentUser?.email || "test2@example.com";
+    const result = await storeLifestyleData(userEmail, lifestyleData);
+    
+    if (result.success) {
+      // Auto-generate profile banners after saving lifestyle data
+      await autoGenerateProfileBanners(userEmail);
       
-      if (result.success) {
-        Alert.alert(
-          'Quiz Complete!', 
-          'Your lifestyle preferences have been saved!'
-        );
-      } else {
-        Alert.alert('Error', result.message);
-      }
-    } catch (error) {
-      console.error('Error saving lifestyle data:', error);
-      Alert.alert('Error', 'Failed to save your lifestyle data.');
+      Alert.alert(
+        'Quiz Complete!', 
+        'Your lifestyle preferences have been saved!'
+      );
+    } else {
+      Alert.alert('Error', result.message);
     }
-  };
+  } catch (error) {
+    console.error('Error saving lifestyle data:', error);
+    Alert.alert('Error', 'Failed to save your lifestyle data.');
+  }
+};
 
   return <LifestyleQuizScreen onQuizComplete={handleQuizComplete} />;
 };

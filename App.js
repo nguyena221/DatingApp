@@ -10,25 +10,17 @@ import { UserProvider } from './contexts/UserContext';
 
 // Import your screens
 import LoginScreen from './screens/LoginScreen';
+import HomeScreen from './screens/HomeScreen'; // NEW HOME SCREEN
 import PageSnapContainer from './components/PageSnapContainer';
 import DiscoverPage from './components/DiscoverPage';
 import EditProfileScreen from './components/EditProfileScreen';
-import QuizWithFirebase from './components/PersonalityQuiz'; // This imports the default export
-import LifestyleQuizWithFirebase from './components/LifestyleQuiz'; // Adjust if needed
+import QuizWithFirebase from './components/PersonalityQuiz';
+import LifestyleQuizWithFirebase from './components/LifestyleQuiz';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// Placeholder screens for Home and Messages
-function HomeScreen() {
-  return (
-    <View style={styles.placeholderContainer}>
-      <Text style={styles.placeholderText}>🏠 Home Screen</Text>
-      <Text style={styles.placeholderSubtext}>Coming Soon!</Text>
-    </View>
-  );
-}
-
+// Placeholder screen for Messages
 function MessagesScreen() {
   return (
     <View style={styles.placeholderContainer}>
@@ -123,9 +115,7 @@ function AppNavigator() {
         name="EditProfile" 
         component={EditProfileScreen}
         options={{
-          headerShown: true,
-          headerTitle: "Edit Profile",
-          headerBackTitle: "Back",
+          headerShown: false,
           presentation: 'modal',
         }}
       />

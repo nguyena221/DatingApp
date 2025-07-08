@@ -1,66 +1,259 @@
-import React from "react";
+import React, { useState, useEffect } from 'react';
 import {
-  SafeAreaView,
-  ScrollView,
   View,
   Text,
+  TouchableOpacity,
   StyleSheet,
-} from "react-native";
-import EventBox from "../components/EventBox";
-import DailyQuiz from "../components/DailyQuiz";
+  SafeAreaView,
+  StatusBar,
+  Dimensions,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { getUserWithPersonality } from '../backend/UserService';
+import { useUser } from '../contexts/UserContext';
+import LogoutButton from '../components/LogoutButton';
+
+const { width, height } = Dimensions.get('window');
 
 export default function HomeScreen() {
-  let helloName = "John"; // we can change this later to work dynamically
+  const navigation = useNavigation();
+  const { currentUser } = useUser();
+  const [quizStatus, setQuizStatus] = useState({
+    personality: false,
+    lifestyle: false
+  });
+
+  // Check quiz completion status when screen focuses
+  useFocusEffect(
+    React.useCallback(() => {
+      const checkQuizStatus = async () => {
+        try {
+          const userEmail = currentUser?.email || "test2@example.com";
+          const result = await getUserWithPersonality(userEmail);
+          
+          if (result.success && result.user) {
+            setQuizStatus({
+              personality: !!result.user.personalityData,
+              lifestyle: !!result.user.personalityLifestyleData
+            });
+          }
+        } catch (error) {
+          console.error('Error checking quiz status:', error);
+        }
+      };
+      
+      checkQuizStatus();
+    }, [currentUser])
+  );
+
+  const handlePersonalityQuiz = () => {
+    navigation.navigate('PersonalityQuiz');
+  };
+
+  const handleLifestyleQuiz = () => {
+    navigation.navigate('LifestyleQuiz');
+  };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#ccddff' }}>
-      <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.helloText}>
-          Hello, <Text style={styles.nameText}>{helloName}</Text>!
-        </Text>
-
-        <View style={styles.events}>
-          <Text style={styles.subText}>Here are some upcoming events:</Text>
-          <EventBox />
+    <View style={styles.container}>
+      <StatusBar backgroundColor="#f8f9fa" barStyle="dark-content" />
+      <SafeAreaView style={styles.safeArea}>
+        {/* Logout Button */}
+        <LogoutButton />
+        
+        <View style={styles.header}>
+          <Text style={styles.title}>Discover Yourself</Text>
+          <Text style={styles.subtitle}>
+            Take our fun quizzes to unlock your personality and lifestyle insights!
+          </Text>
         </View>
 
-        <View style={styles.dailyQuiz}>
-          <Text style={styles.subText}>Take the daily quiz:</Text>
-          <DailyQuiz />
+        <View style={styles.quizzesContainer}>
+          {/* Personality Quiz Card */}
+          <TouchableOpacity
+            style={styles.quizCard}
+            onPress={handlePersonalityQuiz}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={['#667eea', '#764ba2']}
+              style={styles.quizGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <View style={styles.quizContent}>
+                <Text style={styles.quizEmoji}>🧠</Text>
+                <Text style={styles.quizTitle}>Personality Quiz</Text>
+                <Text style={styles.quizDescription}>
+                  Discover your unique personality type with our comprehensive MBTI-style assessment
+                </Text>
+                <View style={styles.quizDetails}>
+                  <Text style={styles.quizDetailText}>• 24 Questions</Text>
+                  <Text style={styles.quizDetailText}>• 5-7 Minutes</Text>
+                  <Text style={styles.quizDetailText}>• MBTI-Based</Text>
+                </View>
+                <View style={styles.startButton}>
+                  <Text style={styles.startButtonText}>
+                    {quizStatus.personality ? 'Retake Quiz →' : 'Start Quiz →'}
+                  </Text>
+                </View>
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          {/* Lifestyle Quiz Card */}
+          <TouchableOpacity
+            style={styles.quizCard}
+            onPress={handleLifestyleQuiz}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={['#ff9a56', '#ffcd3c']}
+              style={styles.quizGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <View style={styles.quizContent}>
+                <Text style={styles.quizEmoji}>🌟</Text>
+                <Text style={styles.quizTitle}>Lifestyle Quiz</Text>
+                <Text style={styles.quizDescription}>
+                  Explore your preferences and lifestyle choices with our fun, quirky questions
+                </Text>
+                <View style={styles.quizDetails}>
+                  <Text style={styles.quizDetailText}>• 20 Questions</Text>
+                  <Text style={styles.quizDetailText}>• 3-5 Minutes</Text>
+                  <Text style={styles.quizDetailText}>• Fun & Quirky</Text>
+                </View>
+                <View style={styles.startButton}>
+                  <Text style={styles.startButtonText}>
+                    {quizStatus.lifestyle ? 'Retake Quiz →' : 'Start Quiz →'}
+                  </Text>
+                </View>
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
 
-        <View style={styles.events}>
-          <Text style={styles.subText}>We can add some other stat or thing here</Text>
-          <EventBox />
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>
+            🎯 Complete both quizzes to unlock personalized profile banners!
+          </Text>
         </View>
-      </ScrollView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: 30,
-    gap: 15,
+    flex: 1,
+    backgroundColor: '#f8f9fa',
   },
-  helloText: {
-    fontSize: 36,
+  safeArea: {
+    flex: 1,
+  },
+  header: {
+    paddingHorizontal: 30,
+    paddingVertical: 30, // Reduced from 40
+    paddingTop: 80, // Add top padding to account for logout button
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 32,
     fontWeight: 'bold',
-    color: '#267f53',
+    color: '#2c3e50',
+    marginBottom: 12,
+    textAlign: 'center',
   },
-  nameText: {
-    color: '#e6c730',
+  subtitle: {
+    fontSize: 16,
+    color: '#7f8c8d',
+    textAlign: 'center',
+    lineHeight: 22,
   },
-  subText: {
-    color: '#267f53',
-    paddingVertical: 15,
+  quizzesContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
+    gap: 16,
+    justifyContent: 'center',
+    marginTop: -40, // Pull up to account for extra header padding
+    paddingBottom: 100, // Add bottom padding for tab navigator
+  },
+  quizCard: {
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  quizGradient: {
+    borderRadius: 20,
+    padding: 20,
+    minHeight: 160, // Reduced from 200
+  },
+  quizContent: {
+    alignItems: 'center',
+  },
+  quizEmoji: {
+    fontSize: 40, // Reduced from 48
+    marginBottom: 12, // Reduced from 16
+  },
+  quizTitle: {
+    fontSize: 22, // Reduced from 24
     fontWeight: 'bold',
-    fontSize: 17,
+    color: 'white',
+    marginBottom: 10, // Reduced from 12
+    textAlign: 'center',
   },
-  events: {
-    marginBottom: 20,
+  quizDescription: {
+    fontSize: 15, // Reduced from 16
+    color: 'rgba(255, 255, 255, 0.9)',
+    textAlign: 'center',
+    lineHeight: 20, // Reduced from 22
+    marginBottom: 16, // Reduced from 20
   },
-  dailyQuiz: {
-    marginBottom: 20,
+  quizDetails: {
+    alignItems: 'center',
+    marginBottom: 18, // Reduced from 24
+  },
+  quizDetailText: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginBottom: 4,
+  },
+  startButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  startButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+  },
+  footer: {
+    paddingHorizontal: 30,
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  footerText: {
+    fontSize: 14,
+    color: '#7f8c8d',
+    textAlign: 'center',
+    fontStyle: 'italic',
+    backgroundColor: 'rgba(52, 152, 219, 0.1)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(52, 152, 219, 0.2)',
   },
 });

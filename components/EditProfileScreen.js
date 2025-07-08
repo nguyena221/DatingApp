@@ -166,67 +166,86 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
     }, []);
 
     useEffect(() => {
-        const loadUserData = async () => {
-            try {
-                const userEmail = currentUser?.email || "test2@example.com"; // Use current user or fallback
-                
-                // Load personality data
-                const personalityResult = await getUserWithPersonality(userEmail);
-                let personalityQuizData = null;
-                let lifestyleQuizData = null;
+    const loadUserData = async () => {
+        try {
+            const userEmail = currentUser?.email || "test2@example.com"; // Use current user or fallback
+            
+            // Load personality data
+            const personalityResult = await getUserWithPersonality(userEmail);
+            let personalityQuizData = null;
+            let lifestyleQuizData = null;
 
-                if (personalityResult.success && personalityResult.user) {
-                    personalityQuizData = personalityResult.user.personalityData;
-                    lifestyleQuizData = personalityResult.user.personalityLifestyleData;
-                    
-                    // Load user name and age
-                    if (personalityResult.user.firstName && personalityResult.user.lastName) {
-                        setUserName(`${personalityResult.user.firstName} ${personalityResult.user.lastName}`);
-                    }
-                    
-                    if (personalityResult.user.birthDate) {
+            if (personalityResult.success && personalityResult.user) {
+                personalityQuizData = personalityResult.user.personalityData;
+                lifestyleQuizData = personalityResult.user.personalityLifestyleData;
+                
+                // Load user name and age with better error handling
+                if (personalityResult.user.firstName && personalityResult.user.lastName) {
+                    setUserName(`${personalityResult.user.firstName} ${personalityResult.user.lastName}`);
+                }
+                
+                // Better age calculation with debugging
+                if (personalityResult.user.birthDate) {
+                    console.log("Birth date from database:", personalityResult.user.birthDate);
+                    try {
                         const age = calculateAge(personalityResult.user.birthDate);
-                        setUserAge(age.toString());
+                        console.log("Calculated age:", age);
+                        
+                        // Check if age is valid
+                        if (age && !isNaN(age) && age > 0) {
+                            setUserAge(age.toString());
+                        } else {
+                            console.warn("Invalid age calculated:", age);
+                            setUserAge("N/A");
+                        }
+                    } catch (ageError) {
+                        console.error("Error calculating age:", ageError);
+                        setUserAge("N/A");
                     }
-                    
-                    // Load saved background color from database
-                    if (personalityResult.user.profileBackgroundColor) {
-                        setCurrentBgColor(personalityResult.user.profileBackgroundColor);
-                        setOriginalBgColor(personalityResult.user.profileBackgroundColor); // Store as original
-                        // Also save to AsyncStorage for faster loading
-                        await AsyncStorage.setItem('profileBackgroundColor', personalityResult.user.profileBackgroundColor);
-                    } else {
-                        setOriginalBgColor(currentBgColor); // Store current as original
-                    }
-                }
-
-                setPersonalityData(personalityQuizData);
-                setLifestyleData(lifestyleQuizData);
-                
-                setQuizStatus({
-                    personality: !!personalityQuizData,
-                    lifestyle: !!lifestyleQuizData
-                });
-
-                // Generate available banners
-                const banners = generateBannersFromData(personalityQuizData, lifestyleQuizData);
-                setAvailableBanners(banners);
-
-                // Set default selected banners (first 5)
-                const savedBanners = personalityResult.user.selectedProfileBanners;
-                if (savedBanners && savedBanners.length > 0) {
-                    setSelectedBanners(savedBanners);
                 } else {
-                    setSelectedBanners(banners.slice(0, 5));
+                    console.log("No birth date found in user data");
+                    setUserAge("N/A");
                 }
-
-            } catch (error) {
-                console.error('Error loading user data:', error);
+                
+                // Load saved background color from database
+                if (personalityResult.user.profileBackgroundColor) {
+                    setCurrentBgColor(personalityResult.user.profileBackgroundColor);
+                    setOriginalBgColor(personalityResult.user.profileBackgroundColor); // Store as original
+                    // Also save to AsyncStorage for faster loading
+                    await AsyncStorage.setItem('profileBackgroundColor', personalityResult.user.profileBackgroundColor);
+                } else {
+                    setOriginalBgColor(currentBgColor); // Store current as original
+                }
             }
-        };
 
-        loadUserData();
-    }, []);
+            setPersonalityData(personalityQuizData);
+            setLifestyleData(lifestyleQuizData);
+            
+            setQuizStatus({
+                personality: !!personalityQuizData,
+                lifestyle: !!lifestyleQuizData
+            });
+
+            // Generate available banners
+            const banners = generateBannersFromData(personalityQuizData, lifestyleQuizData);
+            setAvailableBanners(banners);
+
+            // Set default selected banners (first 5)
+            const savedBanners = personalityResult.user?.selectedProfileBanners;
+            if (savedBanners && savedBanners.length > 0) {
+                setSelectedBanners(savedBanners);
+            } else {
+                setSelectedBanners(banners.slice(0, 5));
+            }
+
+        } catch (error) {
+            console.error('Error loading user data:', error);
+            setUserAge("N/A");
+        }
+    };
+
+    loadUserData();
+}, []);
 
     const handleColorChange = (color) => {
         // Only change the UI color, don't save to database or AsyncStorage yet
