@@ -1,129 +1,366 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity } from 'react-native'; //safeareaview is avoiding weird iphone box at top
-import React, { Component } from 'react';
-import { Constants } from 'expo';
+import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, Image, Dimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { PanGestureHandler } from 'react-native-gesture-handler';
-import Animated, {
-  useSharedValue,
-  useAnimatedGestureHandler,
-  useAnimatedStyle,
-  withSpring,
-} from 'react-native-reanimated';
-import { NavigationContainer } from '@react-navigation/native';
-import {createStackNavigator} from '@react-navigation/stack';
-import SettingsPage from './SettingsPage';
+import { LinearGradient } from 'expo-linear-gradient';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import LogoutButton from '../components/LogoutButton';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../backend/FirebaseConfig';
+import { calculateAge } from '../backend/UserService';
+import { useUser } from '../contexts/UserContext';
+import SettingsPage from './SettingsPage';
 
-const RootStack = createStackNavigator();
+const DiscoverStack = createNativeStackNavigator();
 
-export default function DiscoverPage({ navigation }) {
-    const translateX = useSharedValue(0)
-    const translateY = useSharedValue(0)
+function DiscoverMainScreen({ navigation }) {
+    const [currentProfile, setCurrentProfile] = useState(null);
+    const [profileQueue, setProfileQueue] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const { currentUser } = useUser();
 
-    const panGestureEvent = useAnimatedGestureHandler({
-        onStart: (event, context) => {
-            context.translateX = translateX.value
-            context.translateY = translateY.value
-        }, // when touch square first time
-        onActive: (event, context) => {
-            translateX.value = event.translationX + context.translateX;
-            translateY.value = event.translationY + context.translateY;
-            //console.log(event.translationX);
-        }, // when drag square along view
-        onEnd: (event) => {
-            translateX.value = withSpring(0);
-            translateY.value = withSpring(0);
-        }, //  at end
-    });
-
-    const rStyle = useAnimatedStyle(() => {
-        return {
-            transform: [
-                {
-                    translateX: translateX.value,
-                },
-                {
-                    translateY: translateY.value
+    const loadProfiles = async () => {
+        try {
+            const usersCollection = collection(db, 'users');
+            const snapshot = await getDocs(usersCollection);
+            const profiles = [];
+            
+            snapshot.forEach((doc) => {
+                const userData = doc.data();
+                if (userData.email !== currentUser?.email) {
+                    profiles.push({
+                        id: doc.id,
+                        ...userData
+                    });
                 }
-            ]
+            });
+            
+            const shuffledProfiles = profiles.sort(() => Math.random() - 0.5);
+            setProfileQueue(shuffledProfiles);
+            
+            if (shuffledProfiles.length > 0) {
+                setCurrentProfile(shuffledProfiles[0]);
+            }
+            setLoading(false);
+        } catch (error) {
+            console.error('Error loading profiles:', error);
+            setLoading(false);
         }
-    })
+    };
 
-    return(
+    useEffect(() => {
+        loadProfiles();
+    }, [currentUser]);
+
+    const nextProfile = () => {
+        if (profileQueue.length > 1) {
+            const newQueue = profileQueue.slice(1);
+            setProfileQueue(newQueue);
+            setCurrentProfile(newQueue[0]);
+        } else {
+            loadProfiles();
+        }
+    };
+
+    const renderProfileCard = () => {
+        if (!currentProfile) return null;
+
+        try {
+            const age = currentProfile.birthDate ? calculateAge(currentProfile.birthDate) : 'N/A';
+            const name = currentProfile.firstName && currentProfile.lastName 
+                ? `${currentProfile.firstName} ${currentProfile.lastName}` 
+                : 'Anonymous User';
+            
+            const bgColor = currentProfile.profileBackgroundColor || '#e3f2fd';
+            const banners = currentProfile.selectedProfileBanners || [];
+
+            return (
+                <LinearGradient
+                    colors={[bgColor, '#ffffff']}
+                    style={styles.profileCard}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 0, y: 1 }}
+                >
+                    <View style={styles.photoContainer}>
+                        <View style={styles.photoFrame}>
+                            {currentProfile.profilePhotoURL ? (
+                                <Image
+                                    source={{ uri: currentProfile.profilePhotoURL }}
+                                    style={styles.profilePhoto}
+                                />
+                            ) : (
+                                <View style={styles.placeholderPhoto}>
+                                    <Ionicons name="person" size={60} color="#ccc" />
+                                </View>
+                            )}
+                        </View>
+                    </View>
+
+                    <View style={styles.infoContainer}>
+                        <Text style={styles.nameText}>{name}</Text>
+                        <Text style={styles.ageText}>{age}</Text>
+                    </View>
+
+                    <View style={styles.bannersContainer}>
+                        {banners && banners.length > 0 ? (
+                            banners.slice(0, 3).map((banner, index) => (
+                                <View
+                                    key={index}
+                                    style={styles.bannerRow}
+                                >
+                                    <Text style={styles.bannerLabel}>
+                                        {banner?.label || 'Unknown'}
+                                    </Text>
+                                    <Text style={styles.bannerValue}>
+                                        {banner?.value || 'N/A'}
+                                    </Text>
+                                </View>
+                            ))
+                        ) : (
+                            <View style={styles.noQuizzesContainer}>
+                                <Text style={styles.noQuizzesEmoji}>🎯</Text>
+                                <Text style={styles.noQuizzesText}>
+                                    This user hasn't completed any quizzes yet
+                                </Text>
+                            </View>
+                        )}
+                    </View>
+
+                    <TouchableOpacity style={styles.nextButton} onPress={nextProfile}>
+                        <Text style={styles.nextButtonText}>Next Profile →</Text>
+                    </TouchableOpacity>
+                </LinearGradient>
+            );
+        } catch (error) {
+            console.error('Error rendering profile:', error);
+            return (
+                <View style={styles.errorCard}>
+                    <Text style={styles.errorText}>Error loading profile</Text>
+                    <TouchableOpacity style={styles.nextButton} onPress={loadProfiles}>
+                        <Text style={styles.nextButtonText}>Reload</Text>
+                    </TouchableOpacity>
+                </View>
+            );
+        }
+    };
+
+    return (
         <SafeAreaView style={styles.container}>
-
             <LogoutButton />
-            //settings button
-            <TouchableOpacity
-            onPress = {() => {navigation.navigate('Settings')}}
-            >
+            
+            <TouchableOpacity onPress={() => navigation.navigate('Settings')}>
                 <View style={styles.topBar}>
                     <Ionicons name="settings-outline" size={25} color="black" />
                 </View>
             </TouchableOpacity>
 
-            //header text
             <View style={styles.headerContainer}>
-                <Text style = {styles.text}>Discover</Text>
+                <Text style={styles.text}>Discover</Text>
             </View>
 
-            //profile card
-            
-                <View style={styles.cardContainer}>
-                    <PanGestureHandler
-                     onGestureEvent={panGestureEvent}
-                    >
-                        <Animated.View style={[styles.profileCard, rStyle]}>
-                        </Animated.View>
-                    </PanGestureHandler>
-                </View>
-
-            
-            
+            <View style={styles.cardContainer}>
+                {loading ? (
+                    <View style={styles.loadingContainer}>
+                        <Text style={styles.loadingText}>Loading profiles...</Text>
+                    </View>
+                ) : currentProfile ? (
+                    renderProfileCard()
+                ) : (
+                    <View style={styles.noProfilesContainer}>
+                        <Text style={styles.noProfilesText}>No profiles found!</Text>
+                        <TouchableOpacity style={styles.nextButton} onPress={loadProfiles}>
+                            <Text style={styles.nextButtonText}>Reload</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+            </View>
         </SafeAreaView>
-        
-    )
+    );
 }
 
-const styles = StyleSheet.create(
-    {
-        container: {
-            flex: 1,
-            backgroundColor: 'white'
-        },
-        topBar: {
-            alignItems: 'flex-end',
-            height:30,
-            position: 'absolute',
-            right: 20
-        },
-        headerContainer: {
-            height: 30,
-            alignItems: 'center'
-        },
-        text: {
-            fontFamily: 'Georgia-Italic',
-            fontSize:25,
-            color: 'black',
-            letterSpacing: 0.38,
-        },
-        cardContainer: {
-            flex: 1,
-            justifyContent: 'center',
-            alignItems: 'center',
-            paddingHorizontal: 20,
-        },
+export default function DiscoverPage() {
+    return (
+        <DiscoverStack.Navigator
+            screenOptions={{
+                headerShown: false,
+            }}
+        >
+            <DiscoverStack.Screen 
+                name="DiscoverMain" 
+                component={DiscoverMainScreen} 
+            />
+            <DiscoverStack.Screen 
+                name="Settings" 
+                component={SettingsPage}
+                options={{
+                    headerShown: true,
+                    headerTitle: "Settings",
+                    headerBackTitle: "Back",
+                    presentation: 'modal',
+                }}
+            />
+        </DiscoverStack.Navigator>
+    );
+}
 
-        profileCard: {
-            height: 550,
-            backgroundColor:'blue',
-            marginTop:20,
-            width: 300,
-            borderTopLeftRadius: 20,
-            borderTopRightRadius: 20,
-            borderBottomLeftRadius: 20,
-            borderBottomRightRadius: 20, //borderRadius would do all corners
-        },
-    }
-);
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: 'white'
+    },
+    topBar: {
+        alignItems: 'flex-end',
+        height: 30,
+        position: 'absolute',
+        right: 20
+    },
+    headerContainer: {
+        height: 30,
+        alignItems: 'center'
+    },
+    text: {
+        fontFamily: 'Georgia-Italic',
+        fontSize: 25,
+        color: 'black',
+        letterSpacing: 0.38,
+    },
+    cardContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+    },
+    profileCard: {
+        height: 550,
+        width: 300,
+        borderRadius: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+        elevation: 8,
+        padding: 20,
+    },
+    photoContainer: {
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    photoFrame: {
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        overflow: 'hidden',
+        borderWidth: 3,
+        borderColor: 'rgba(255, 255, 255, 0.8)',
+    },
+    profilePhoto: {
+        width: '100%',
+        height: '100%',
+    },
+    placeholderPhoto: {
+        width: '100%',
+        height: '100%',
+        backgroundColor: '#f0f0f0',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    infoContainer: {
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    nameText: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: '#333',
+        marginBottom: 5,
+    },
+    ageText: {
+        fontSize: 18,
+        color: '#666',
+    },
+    bannersContainer: {
+        flex: 1,
+        gap: 10,
+    },
+    bannerRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 10,
+        paddingHorizontal: 15,
+        borderRadius: 15,
+        backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    },
+    bannerLabel: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#333',
+    },
+    bannerValue: {
+        fontSize: 14,
+        fontWeight: '500',
+        color: '#333',
+    },
+    noQuizzesContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+        borderRadius: 15,
+        padding: 20,
+    },
+    noQuizzesEmoji: {
+        fontSize: 36,
+        marginBottom: 10,
+    },
+    noQuizzesText: {
+        fontSize: 16,
+        color: '#666',
+        textAlign: 'center',
+        fontStyle: 'italic',
+    },
+    nextButton: {
+        backgroundColor: '#007AFF',
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 25,
+        alignItems: 'center',
+        marginTop: 10,
+    },
+    nextButtonText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    loadingContainer: {
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    loadingText: {
+        fontSize: 18,
+        color: '#666',
+    },
+    noProfilesContainer: {
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    noProfilesText: {
+        fontSize: 18,
+        color: '#666',
+        marginBottom: 20,
+    },
+    errorCard: {
+        height: 550,
+        width: 300,
+        borderRadius: 20,
+        backgroundColor: '#f0f0f0',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+    },
+    errorText: {
+        fontSize: 16,
+        color: '#666',
+        marginBottom: 20,
+    },
+});

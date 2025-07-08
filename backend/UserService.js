@@ -423,3 +423,20 @@ export async function autoGenerateProfileBanners(email) {
     return { success: false, message: "Failed to auto-generate banners" };
   }
 }
+
+export async function storeLocationSettings(email, locationSettings) {
+  try {
+    const userID = sanitizeEmail(email);
+    const userDocRef = doc(db, "users", userID);
+    
+    await updateDoc(userDocRef, {
+      locationSettings: locationSettings
+    });
+    
+    console.log("Location settings stored successfully");
+    return { success: true, message: "Location settings saved!" };
+  } catch (error) {
+    console.error("Error storing location settings:", error);
+    return { success: false, message: "Failed to save location settings" };
+  }
+}

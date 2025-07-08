@@ -1,192 +1,335 @@
-import { StyleSheet, Text, SafeAreaView,
-    TouchableOpacity, View, Switch, ScrollView
- } from 'react-native';
-import React, { Component } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import {createStackNavigator} from '@react-navigation/stack';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  SafeAreaView,
+  Alert,
+  Switch,
+} from 'react-native';
+import Slider from '@react-native-community/slider';
+import * as Location from 'expo-location';
+import { useUser } from '../contexts/UserContext';
+import { getUserWithPersonality, storeLocationSettings } from '../backend/UserService';
 
-export default class SettingsPage extends Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-      darkMode: false,
-      notifications: true,
-      sound: true,
-      vibration: false,
-    };
-  }
+export default function SettingsPage() {
+  const [locationEnabled, setLocationEnabled] = useState(false);
+  const [radiusMiles, setRadiusMiles] = useState(25);
+  const [loading, setLoading] = useState(true);
+  const { currentUser } = useUser();
 
-  render() {
+  useEffect(() => {
+    loadUserSettings();
+  }, []);
+
+  const loadUserSettings = async () => {
+    try {
+      const userEmail = currentUser?.email || "test2@example.com";
+      const result = await getUserWithPersonality(userEmail);
+      
+      if (result.success && result.user && result.user.locationSettings) {
+        const settings = result.user.locationSettings;
+        setLocationEnabled(settings.enabled || false);
+        setRadiusMiles(settings.radiusMiles || 25);
+      }
+      setLoading(false);
+    } catch (error) {
+      console.error('Error loading user settings:', error);
+      setLoading(false);
+    }
+  };
+
+  const handleLocationToggle = async () => {
+    if (!locationEnabled) {
+      // Request location permission
+      try {
+        let { status } = await Location.requestForegroundPermissionsAsync();
+        
+        if (status !== 'granted') {
+          Alert.alert(
+            'Permission Denied',
+            'Location access is required to find people near you.',
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+
+        // Get current location
+        let location = await Location.getCurrentPositionAsync({});
+        
+        const locationData = {
+          enabled: true,
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+          radiusMiles: radiusMiles,
+          lastUpdated: new Date().toISOString()
+        };
+
+        // Save to database
+        const userEmail = currentUser?.email || "test2@example.com";
+        const result = await storeLocationSettings(userEmail, locationData);
+        
+        if (result.success) {
+          setLocationEnabled(true);
+          Alert.alert(
+            'Location Enabled',
+            `You can now discover people within ${radiusMiles} miles of your location!`
+          );
+        } else {
+          Alert.alert('Error', 'Failed to save location settings.');
+        }
+      } catch (error) {
+        console.error('Error enabling location:', error);
+        Alert.alert('Error', 'Failed to get your location.');
+      }
+    } else {
+      // Disable location
+      const locationData = {
+        enabled: false,
+        latitude: null,
+        longitude: null,
+        radiusMiles: radiusMiles,
+        lastUpdated: new Date().toISOString()
+      };
+
+      const userEmail = currentUser?.email || "test2@example.com";
+      const result = await storeLocationSettings(userEmail, locationData);
+      
+      if (result.success) {
+        setLocationEnabled(false);
+        Alert.alert('Location Disabled', 'Location services have been turned off.');
+      } else {
+        Alert.alert('Error', 'Failed to update location settings.');
+      }
+    }
+  };
+
+  const handleRadiusChange = async (value) => {
+    setRadiusMiles(Math.round(value));
+    
+    // Update radius in database if location is enabled
+    if (locationEnabled) {
+      try {
+        const userEmail = currentUser?.email || "test2@example.com";
+        const userData = await getUserWithPersonality(userEmail);
+        
+        if (userData.success && userData.user.locationSettings) {
+          const updatedSettings = {
+            ...userData.user.locationSettings,
+            radiusMiles: Math.round(value),
+            lastUpdated: new Date().toISOString()
+          };
+          
+          await storeLocationSettings(userEmail, updatedSettings);
+        }
+      } catch (error) {
+        console.error('Error updating radius:', error);
+      }
+    }
+  };
+
+  if (loading) {
     return (
-      <ScrollView style={styles.container}>
-
-        <View style={styles.header}>
-          <Text style={styles.headerText}>Settings</Text>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading settings...</Text>
         </View>
-
-        {/* Appearance Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Appearance</Text>
-          
-          <View style={styles.settingRow}>
-            <Text style={styles.settingText}>Dark Mode</Text>
-            <Switch
-              value={this.state.darkMode}
-              onValueChange={(value) => this.setState({darkMode: value})}
-            />
-          </View>
-        </View>
-
-        {/* Notifications Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Notifications</Text>
-          
-          <View style={styles.settingRow}>
-            <Text style={styles.settingText}>Push Notifications</Text>
-            <Switch
-              value={this.state.notifications}
-              onValueChange={(value) => this.setState({notifications: value})}
-            />
-          </View>
-
-          <View style={styles.settingRow}>
-            <Text style={styles.settingText}>Sound</Text>
-            <Switch
-              value={this.state.sound}
-              onValueChange={(value) => this.setState({sound: value})}
-            />
-          </View>
-
-          <View style={styles.settingRow}>
-            <Text style={styles.settingText}>Vibration</Text>
-            <Switch
-              value={this.state.vibration}
-              onValueChange={(value) => this.setState({vibration: value})}
-            />
-          </View>
-        </View>
-
-        {/* Account Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account</Text>
-          
-          <TouchableOpacity style={styles.settingButton}>
-            <Text style={styles.settingText}>Edit Profile</Text>
-            <Text style={styles.arrow}></Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.settingButton}>
-            <Text style={styles.settingText}>Change Password</Text>
-            <Text style={styles.arrow}></Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.settingButton}>
-            <Text style={styles.settingText}>Privacy Settings</Text>
-            <Text style={styles.arrow}></Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Other Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Other</Text>
-          
-          <TouchableOpacity style={styles.settingButton}>
-            <Text style={styles.settingText}>Help & Support</Text>
-            <Text style={styles.arrow}></Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.settingButton}>
-            <Text style={styles.settingText}>About</Text>
-            <Text style={styles.arrow}></Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.settingButton, styles.logoutButton]}>
-            <Text style={[styles.settingText, styles.logoutText]}>Log Out</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Back Button */}
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => this.props.navigation.goBack()}
-        >
-          <Text style={styles.backButtonText}>Back</Text>
-        </TouchableOpacity>
-
-      </ScrollView>
+      </SafeAreaView>
     );
   }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.content}>
+        
+        {/* Location Services Section */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>📍 Location Services</Text>
+          </View>
+          
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingLabel}>Enable Location Services</Text>
+              <Text style={styles.settingDescription}>
+                Find people near you based on your location
+              </Text>
+            </View>
+            <Switch
+              value={locationEnabled}
+              onValueChange={handleLocationToggle}
+              trackColor={{ false: '#e0e0e0', true: '#007AFF' }}
+              thumbColor={locationEnabled ? '#ffffff' : '#f4f3f4'}
+            />
+          </View>
+
+          {/* Radius Slider - Only show if location is enabled */}
+          {locationEnabled && (
+            <View style={styles.radiusContainer}>
+              <Text style={styles.radiusLabel}>
+                Discovery Radius: {radiusMiles} miles
+              </Text>
+              <Text style={styles.radiusDescription}>
+                Meet people within this distance from your location
+              </Text>
+              
+              <View style={styles.sliderContainer}>
+                <Text style={styles.sliderLabel}>1 mile</Text>
+                <Slider
+                  style={styles.slider}
+                  minimumValue={1}
+                  maximumValue={100}
+                  value={radiusMiles}
+                  onValueChange={handleRadiusChange}
+                  minimumTrackTintColor="#007AFF"
+                  maximumTrackTintColor="#e0e0e0"
+                  thumbStyle={styles.sliderThumb}
+                  step={1}
+                />
+                <Text style={styles.sliderLabel}>100 miles</Text>
+              </View>
+            </View>
+          )}
+        </View>
+
+        {/* Status Info */}
+        <View style={styles.statusCard}>
+          <Text style={styles.statusTitle}>
+            {locationEnabled ? '✅ Location Services Active' : '❌ Location Services Disabled'}
+          </Text>
+          <Text style={styles.statusDescription}>
+            {locationEnabled 
+              ? `You can discover profiles within ${radiusMiles} miles of your location.`
+              : 'Enable location services to find people near you.'
+            }
+          </Text>
+        </View>
+      </View>
+    </SafeAreaView>
+  );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#ffffff',
   },
-  header: {
-    backgroundColor: 'blue',
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#666',
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  sectionCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
     padding: 20,
-    paddingTop: 50,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  headerText: {
-    fontSize: 24,
-    fontFamily: 'Georgia-Italic',
-    color: 'white',
-    textAlign: 'center',
-  },
-  section: {
-    backgroundColor: 'white',
-    marginTop: 20,
-    marginHorizontal: 15,
-    borderRadius: 10,
-    padding: 15,
+  sectionHeader: {
+    marginBottom: 20,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 15,
   },
   settingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    paddingVertical: 10,
   },
-  settingButton: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+  settingInfo: {
+    flex: 1,
+    marginRight: 15,
   },
-  settingText: {
+  settingLabel: {
     fontSize: 16,
+    fontWeight: '600',
     color: '#333',
+    marginBottom: 4,
   },
-  arrow: {
+  settingDescription: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 18,
+  },
+  radiusContainer: {
+    marginTop: 25,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+  radiusLabel: {
     fontSize: 16,
-    color: '#999',
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 5,
   },
-  logoutButton: {
-    borderBottomWidth: 0,
+  radiusDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 20,
   },
-  logoutText: {
-    color: '#ff4444',
-  },
-  backButton: {
-    backgroundColor: '#6200ee',
-    margin: 20,
-    padding: 15,
-    borderRadius: 8,
+  sliderContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 15,
   },
-  backButtonText: {
-    color: 'white',
+  slider: {
+    flex: 1,
+    height: 40,
+  },
+  sliderLabel: {
+    fontSize: 12,
+    color: '#999',
+    fontWeight: '500',
+  },
+  sliderThumb: {
+    backgroundColor: '#007AFF',
+    width: 20,
+    height: 20,
+  },
+  statusCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  statusTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  statusDescription: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
   },
 });
