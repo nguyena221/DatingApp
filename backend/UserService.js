@@ -1,5 +1,3 @@
-// /backend/UserService.js
-
 import {
   doc,
   setDoc,
@@ -8,7 +6,6 @@ import {
   collection,
   addDoc, 
 } from "firebase/firestore";
-
 import {db} from "./FirebaseConfig" 
 
 const usersRef = collection(db, "users");
@@ -17,7 +14,7 @@ function sanitizeEmail(email) {
   return email.replace(/\./g, "_");
 }
 
-export async function storeTestUser(user) {
+export async function storeUser(user) {
   const userID = sanitizeEmail(user.email);
   const userDocRef = doc(db, "users", userID);
   await setDoc(userDocRef, {
@@ -29,18 +26,6 @@ export async function storeTestUser(user) {
   });
 }
 
-// ✅ Optional: Store user with auto-generated ID instead of email
-export async function storeUserWithAutoID(user) {
-  await addDoc(usersRef, {
-    email: user.email,
-    password: user.password,
-    firstName: user.firstName,
-    lastName: user.lastName,
-    birthDate: user.birthDate,
-  });
-}
-
-// ✅ Check if a user exists (email-based)
 export async function checkTestUser(email, password) {
   const userID = sanitizeEmail(email);
   const docRef = doc(db, "users", userID);
@@ -56,17 +41,4 @@ export async function checkTestUser(email, password) {
   } else {
     return { success: false, message: "Incorrect password" };
   }
-}
-
-// ✅ Real-time listener to a single user document
-export function listenToTestUser(email, callback) {
-  const userID = sanitizeEmail(email);
-  const docRef = doc(db, "users", userID);
-  return onSnapshot(docRef, (docSnap) => {
-    if (docSnap.exists()) {
-      callback(docSnap.data());
-    } else {
-      callback(null);
-    }
-  });
 }

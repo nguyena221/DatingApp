@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Text, TouchableOpacity, Alert } from "react-native";
+import { useNavigation } from "@react-navigation/native"; // ✅ already imported
 import LoginPanel from "../components/LoginPanel";
 import AuthTabs from "../components/LoginTabs";
 import SubmitButton from "../components/SubmitButton";
@@ -7,6 +8,8 @@ import { UseLoginHandlers } from "../hook/UseLoginHandlers";
 import styles from "../styles/LoginScreenStyle";
 
 export default function LoginScreen() {
+  const navigation = useNavigation(); // ✅ add this to access navigation
+
   const [email, setEmail] = useState("test2@example.com");
   const [pass, setPass] = useState("pass123");
   const [firstN, setFirstN] = useState("Annie");
@@ -25,9 +28,33 @@ export default function LoginScreen() {
     setLoginStatus,
   });
 
+  const handleLogin = async () => {
+    const success = await handleCheck();
+    if (success) {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "Home" }],
+      });
+    } else {
+      Alert.alert("Login Failed", "Invalid email or password.");
+    }
+  };
+
+  const handleRegister = async () => {
+    const success = await handleStore();
+    if (success) {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "Home" }],
+      });
+    } else {
+      Alert.alert("Registration Failed", "Please check your input.");
+    }
+  };
+
   return (
     <View style={styles.mainContainer}>
-      <Text style={styles.title}>DatingApp</Text>
+      <Text style={styles.title}>GameDate</Text>
 
       <View style={styles.logPanel}>
         <AuthTabs
@@ -50,10 +77,8 @@ export default function LoginScreen() {
           setBirthday={setBirthDate}
         />
 
-        {/* Submit Button */}
-        <SubmitButton onPress={isLogin ? handleCheck : handleStore} />
+        <SubmitButton onPress={isLogin ? handleLogin : handleRegister} />
 
-        {/* Links */}
         <TouchableOpacity>
           <Text style={styles.forgotText}>Forgot Password?</Text>
         </TouchableOpacity>

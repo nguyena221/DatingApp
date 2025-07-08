@@ -31,6 +31,7 @@ const styles = StyleSheet.create({
   },
   loginPanelContainer: {
     width: "100%",
+    overflow: 'hidden'
   },
   input: {
     borderWidth: 1,

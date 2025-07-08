@@ -40,7 +40,7 @@ export default function LoginPanel({
 
   return (
     <Animated.View style={[styles.loginPanelContainer, { height: heightAnim }]}>
-      <Animated.View style={{ translateX: slideAnim }}>
+      <Animated.View style={{ transform: [{ translateX: slideAnim }] }}>
         {/* Common Fields */}
         <TextInput
           placeholder="Email"
