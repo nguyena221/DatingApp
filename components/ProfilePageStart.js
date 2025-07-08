@@ -3,12 +3,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState, useEffect } from 'react';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getUserWithPersonality } from '../backend/UserService';
 
 const { height } = Dimensions.get('window');
 
 export default function ProfilePageStart({ scrollY }) {
     const [bgColor, setBgColor] = useState('#e3f2fd');
     const [photoUrl, setPhotoUrl] = useState('');
+    const [selectedBanners, setSelectedBanners] = useState([]);
     const navigation = useNavigation();
 
     const exploreMoreOpacity = scrollY ? scrollY.interpolate({
@@ -18,8 +20,23 @@ export default function ProfilePageStart({ scrollY }) {
     }) : 1;
 
     const getProfilePhoto = async () => {
-        let response = await fetch("https://picsum.photos/200/20");
-        return response.url;
+        try {
+            // First try to load user's saved photo from database
+            const userEmail = "test2@example.com"; // Replace with actual user email
+            const result = await getUserWithPersonality(userEmail);
+            
+            if (result.success && result.user && result.user.profilePhotoURL) {
+                return result.user.profilePhotoURL;
+            } else {
+                // Fallback to random photo
+                let response = await fetch("https://picsum.photos/200/20");
+                return response.url;
+            }
+        } catch (error) {
+            console.error("Error loading profile photo:", error);
+            let response = await fetch("https://picsum.photos/200/20");
+            return response.url;
+        }
     };
 
     useEffect(() => {
@@ -32,17 +49,89 @@ export default function ProfilePageStart({ scrollY }) {
 
     useFocusEffect(
         React.useCallback(() => {
-            const loadColor = async () => {
+            const loadUserData = async () => {
                 try {
-                    const savedColor = await AsyncStorage.getItem('profileBackgroundColor');
-                    if (savedColor) {
-                        setBgColor(savedColor);
+                    const userEmail = "test2@example.com"; // Replace with actual user email
+                    const result = await getUserWithPersonality(userEmail);
+                    
+                    if (result.success && result.user) {
+                        // Load background color from database first
+                        if (result.user.profileBackgroundColor) {
+                            setBgColor(result.user.profileBackgroundColor);
+                            // Save to AsyncStorage for faster future loading
+                            await AsyncStorage.setItem('profileBackgroundColor', result.user.profileBackgroundColor);
+                        } else {
+                            // Fallback to AsyncStorage if not in database
+                            const savedColor = await AsyncStorage.getItem('profileBackgroundColor');
+                            if (savedColor) {
+                                setBgColor(savedColor);
+                            }
+                        }
+
+                        // Load user banners from database
+                        if (result.user.selectedProfileBanners) {
+                            setSelectedBanners(result.user.selectedProfileBanners);
+                        } else {
+                            // Set default banners if none saved
+                            setSelectedBanners([
+                                {
+                                    id: 'personality_type',
+                                    label: 'Personality',
+                                    value: 'Extrovert',
+                                    gradient: ['#667eea', '#764ba2'],
+                                    textColor: 'white'
+                                },
+                                {
+                                    id: 'candy_choice',
+                                    label: 'Candy Choice',
+                                    value: 'Skittles 🌈',
+                                    gradient: ['#ffecd2', '#fcb69f'],
+                                    textColor: '#333'
+                                },
+                                {
+                                    id: 'time_preference',
+                                    label: 'Morning Person',
+                                    value: 'Night Owl 🦉',
+                                    gradient: ['#a8edea', '#fed6e3'],
+                                    textColor: '#333'
+                                },
+                                {
+                                    id: 'social_style',
+                                    label: 'Social Style',
+                                    value: 'Party Starter',
+                                    gradient: ['#d299c2', '#fef9d7'],
+                                    textColor: '#333'
+                                },
+                                {
+                                    id: 'home_style',
+                                    label: 'Dream Home',
+                                    value: 'Cozy Cottage 🏠',
+                                    gradient: ['#ff9a9e', '#fecfef'],
+                                    textColor: '#333'
+                                }
+                            ]);
+                        }
+                    } else {
+                        // If no user data, fall back to AsyncStorage for color
+                        const savedColor = await AsyncStorage.getItem('profileBackgroundColor');
+                        if (savedColor) {
+                            setBgColor(savedColor);
+                        }
                     }
                 } catch (e) {
-                    console.error('Failed to load background color', e);
+                    console.error('Failed to load user data', e);
+                    // Fallback to AsyncStorage
+                    try {
+                        const savedColor = await AsyncStorage.getItem('profileBackgroundColor');
+                        if (savedColor) {
+                            setBgColor(savedColor);
+                        }
+                    } catch (asyncError) {
+                        console.error('Failed to load from AsyncStorage', asyncError);
+                    }
                 }
             };
-            loadColor();
+            loadUserData();
         }, [])
     );
 
@@ -85,47 +174,28 @@ export default function ProfilePageStart({ scrollY }) {
                             <Text style={styles.ageText}>24</Text>
                         </View>
 
-                        {/* Stats Container */}
+                        {/* Stats Container - Now shows banners from database */}
                         <View style={styles.statsContainer}>
-                            <LinearGradient
-                                colors={['#667eea', '#764ba2']}
-                                style={styles.statRow}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                            >
-                                <Text style={styles.statLabel}>Personality</Text>
-                                <Text style={styles.statValue}>Extrovert</Text>
-                            </LinearGradient>
-
-                            <LinearGradient
-                                colors={['#ffecd2', '#fcb69f']}
-                                style={styles.statRow}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                            >
-                                <Text style={styles.statLabelDark}>Candy Choice</Text>
-                                <Text style={styles.statValueDark}>Skittles 🌈</Text>
-                            </LinearGradient>
-
-                            <LinearGradient
-                                colors={['#a8edea', '#fed6e3']}
-                                style={styles.statRow}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                            >
-                                <Text style={styles.statLabelDark}>Morning Person</Text>
-                                <Text style={styles.statValueDark}>Night Owl 🦉</Text>
-                            </LinearGradient>
-
-                            <LinearGradient
-                                colors={['#d299c2', '#fef9d7']}
-                                style={styles.statRow}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                            >
-                                <Text style={styles.statLabelDark}>Social Style</Text>
-                                <Text style={styles.statValueDark}>Party Starter</Text>
-                            </LinearGradient>
+                            {selectedBanners.slice(0, 5).map((banner, index) => (
+                                <LinearGradient
+                                    key={banner.id || index}
+                                    colors={banner.gradient}
+                                    style={styles.statRow}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                >
+                                    <Text style={[
+                                        banner.textColor === 'white' ? styles.statLabel : styles.statLabelDark
+                                    ]}>
+                                        {banner.label}
+                                    </Text>
+                                    <Text style={[
+                                        banner.textColor === 'white' ? styles.statValue : styles.statValueDark
+                                    ]}>
+                                        {banner.value}
+                                    </Text>
+                                </LinearGradient>
+                            ))}
                         </View>
 
                         {/* Explore More Indicator */}

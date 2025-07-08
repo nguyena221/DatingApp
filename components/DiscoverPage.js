@@ -1,6 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity } from 'react-native'; //safeareaview is avoiding weird iphone box at top
-import { LinearGradient } from 'react-native-linear-gradient';
 import React, { Component } from 'react';
 import { Constants } from 'expo';
 import { Ionicons } from '@expo/vector-icons';

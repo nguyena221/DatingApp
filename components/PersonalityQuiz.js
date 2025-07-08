@@ -10,6 +10,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { storePersonalityData } from '../backend/UserService';
 
 const { width } = Dimensions.get('window');
 
@@ -268,6 +269,7 @@ const PersonalityQuizScreen = ({ onQuizComplete }) => {
         personalityType: type,
         scores: scoreCount,
         description: personalityDescriptions[type],
+        short_description: personalityDescriptions[type].split(' - ')[0],
         completedAt: new Date().toISOString(),
         dimensions: {
           energyOrientation: scoreCount.E > scoreCount.I ? 'Extraversion' : 'Introversion',
@@ -552,33 +554,21 @@ const styles = StyleSheet.create({
   },
 });
 
-// Example usage with Firebase integration
+// Updated Firebase integration
 const QuizWithFirebase = () => {
   const handleQuizComplete = async (personalityData) => {
     try {
-      // Example Firebase function - you'll need to import your Firebase config
-      // import { db } from '../firebase/config';
-      // import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
+      const userEmail = "test2@example.com"; // Replace with actual logged-in user email
+      const result = await storePersonalityData(userEmail, personalityData);
       
-      console.log('Personality Data to store:', personalityData);
-      
-      // Store in Firebase Firestore
-      // const docRef = await addDoc(collection(db, 'userPersonalities'), {
-      //   ...personalityData,
-      //   userId: 'current-user-id', // Replace with actual user ID
-      // });
-      
-      // Or update existing user document
-      // const userRef = doc(db, 'users', 'current-user-id');
-      // await updateDoc(userRef, {
-      //   personalityType: personalityData.personalityType,
-      //   personalityData: personalityData,
-      // });
-      
-      Alert.alert(
-        'Quiz Complete!', 
-        `Your personality type (${personalityData.personalityType}) has been saved!`
-      );
+      if (result.success) {
+        Alert.alert(
+          'Quiz Complete!', 
+          `Your personality type (${personalityData.personalityType}) has been saved!`
+        );
+      } else {
+        Alert.alert('Error', result.message);
+      }
     } catch (error) {
       console.error('Error saving personality data:', error);
       Alert.alert('Error', 'Failed to save your personality data.');
