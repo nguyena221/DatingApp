@@ -1,6 +1,10 @@
 import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, Image } from 'react-native'; //safeareaview is avoiding weird iphone box at top
-import { LinearGradient } from 'react-native-linear-gradient';
 import React, { Component } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
+import TravelPinsWidget from '../widgets/TravelPinsWidget';
+import FavoriteMoviesWidget from '../widgets/FavoriteMoviesWidget';
+import FavoriteBooksWidget from '../widgets/FavoriteBooksWidget';
+import FoodieSpotsWidget from '../widgets/FoodieSpotsWidget';
 
 export default class ProfilePageWidgets extends Component {
     render() {
@@ -9,14 +13,18 @@ export default class ProfilePageWidgets extends Component {
                 <View style={styles.infoPanelsContainer}>
                     <View style={styles.topRow}>
                         <View style={styles.infoPanel}>
+                            <TravelPinsWidget />
                         </View>
                         <View style={styles.infoPanel}>
+                            <FavoriteMoviesWidget/>
                         </View>
                     </View>
                     <View style={styles.bottomRow}>
                         <View style={styles.infoPanel}>
+                            <FavoriteBooksWidget/>
                         </View>
                         <View style={styles.infoPanel}>
+                            <FoodieSpotsWidget/>
                         </View>
                     </View>
                 </View>
@@ -48,7 +56,6 @@ const styles = StyleSheet.create({
     infoPanel: {
         height: 360,
         width: 180,
-        backgroundColor: 'blue',
         borderRadius: 8
     },
     topRow: {
