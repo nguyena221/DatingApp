@@ -7,6 +7,7 @@ import HomeScreen from "./screens/HomeScreen";
 import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, Image } from 'react-native';
 import PageSnapContainer from "./components/PageSnapContainer"
 import { LinearGradient } from 'expo-linear-gradient';
+import QuizWithFirebase from './components/myersbriggs24'
 
 const Stack = createNativeStackNavigator();
 
@@ -22,8 +23,20 @@ export default function App() {
     </NavigationContainer>
     */
 
+    /*
     <NavigationContainer>
       <PageSnapContainer />
     </NavigationContainer>
+    */
+
+    <View style={styles.container}>
+      <QuizWithFirebase/>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex:1,
+  }
+})
