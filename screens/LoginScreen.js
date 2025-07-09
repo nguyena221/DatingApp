@@ -1,14 +1,16 @@
 import React, { useState } from "react";
 import { View, Text, TouchableOpacity, Alert } from "react-native";
-import { useNavigation } from "@react-navigation/native"; // ✅ already imported
+import { useNavigation } from "@react-navigation/native";
 import LoginPanel from "../components/LoginPanel";
 import AuthTabs from "../components/LoginTabs";
 import SubmitButton from "../components/SubmitButton";
 import { UseLoginHandlers } from "../hook/UseLoginHandlers";
+import { useUser } from "../contexts/UserContext"; // Add this import
 import styles from "../styles/LoginScreenStyle";
 
 export default function LoginScreen() {
-  const navigation = useNavigation(); // ✅ add this to access navigation
+  const navigation = useNavigation();
+  const { login } = useUser(); // Add this line
 
   const [email, setEmail] = useState("test2@example.com");
   const [pass, setPass] = useState("pass123");
@@ -26,6 +28,7 @@ export default function LoginScreen() {
     lastN,
     birthDate,
     setLoginStatus,
+    login, // Pass the login function
   });
 
   const handleLogin = async () => {

@@ -8,12 +8,14 @@ export const UseLoginHandlers = ({
   lastN,
   birthDate,
   setLoginStatus,
+  login, // Add this parameter
 }) => {
   const handleCheck = async () => {
     try {
       const res = await checkTestUser(email, pass);
       if (res.success) {
         setLoginStatus("Login success!");
+        login(email); // Set the current user
         Alert.alert("Success", res.message);
         return true;
       } else {
@@ -29,17 +31,16 @@ export const UseLoginHandlers = ({
 
   const handleStore = async () => {
     try {
-      const formattedBirthDate = new Date(birthDate).toLocaleDateString("en-US");
-
       const user = {
         email,
         password: pass,
         firstName: firstN,
         lastName: lastN,
-        birthDate: formattedBirthDate,
+        birthDate: birthDate, // Store as-is from the input
       };
 
       await storeUser(user);
+      login(email); // Set the current user after registration
       setLoginStatus("Registration success!");
       Alert.alert("Success", "User registered successfully.");
       return true;
