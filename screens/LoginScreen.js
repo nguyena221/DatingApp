@@ -5,12 +5,11 @@ import LoginPanel from "../components/LoginPanel";
 import AuthTabs from "../components/LoginTabs";
 import SubmitButton from "../components/SubmitButton";
 import { UseLoginHandlers } from "../hook/UseLoginHandlers";
-import { useUser } from "../contexts/UserContext"; // Add this import
+import AsyncStorage from '@react-native-async-storage/async-storage'; // ✅ Added
 import styles from "../styles/LoginScreenStyle";
 
 export default function LoginScreen() {
   const navigation = useNavigation();
-  const { login } = useUser(); // Add this line
 
   const [email, setEmail] = useState("test2@example.com");
   const [pass, setPass] = useState("pass123");
@@ -21,6 +20,15 @@ export default function LoginScreen() {
   const [isLogin, setIsLogin] = useState(true);
   const [activeTab, setActiveTab] = useState("LOGIN");
 
+  // ✅ Local login function to save email to AsyncStorage
+  const login = async (email) => {
+    try {
+      await AsyncStorage.setItem("userEmail", email);
+    } catch (error) {
+      console.error("Failed to save userEmail:", error);
+    }
+  };
+
   const { handleCheck, handleStore } = UseLoginHandlers({
     email,
     pass,
@@ -28,7 +36,7 @@ export default function LoginScreen() {
     lastN,
     birthDate,
     setLoginStatus,
-    login, // Pass the login function
+    login,
   });
 
   const handleLogin = async () => {

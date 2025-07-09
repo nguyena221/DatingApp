@@ -8,23 +8,23 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { UserProvider } from './contexts/UserContext';
 
-// Import your screens
+// Import screens
 import LoginScreen from './screens/LoginScreen';
-import HomeScreen from './screens/HomeScreen'; // NEW HOME SCREEN
+import HomeScreen from './screens/HomeScreen';
 import PageSnapContainer from './components/PageSnapContainer';
 import DiscoverPage from './components/DiscoverPage';
 import EditProfileScreen from './components/EditProfileScreen';
 import QuizWithFirebase from './components/PersonalityQuiz';
 import LifestyleQuizWithFirebase from './components/LifestyleQuiz';
-import MessagesScreen from './screens/MessagesScreen'
+import MessagesScreen from './screens/MessagesScreen';
+import ChatRoom from './screens/ChatRoom'; // ✅ NEW SCREEN
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// Tab Navigator Component
 function TabNavigator() {
   const insets = useSafeAreaInsets();
-  
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -60,83 +60,56 @@ function TabNavigator() {
         headerShown: false,
       })}
     >
-      <Tab.Screen 
-        name="Home" 
-        component={HomeScreen}
-      />
-      <Tab.Screen 
-        name="Discover" 
-        component={DiscoverPage}
-      />
-      <Tab.Screen 
-        name="Messages" 
-        component={MessagesScreen}
-      />
-      <Tab.Screen 
-        name="Profile" 
-        component={PageSnapContainer}
-      />
+      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Discover" component={DiscoverPage} />
+      <Tab.Screen name="Messages" component={MessagesScreen} />
+      <Tab.Screen name="Profile" component={PageSnapContainer} />
     </Tab.Navigator>
   );
 }
 
-// Main Stack Navigator
 function AppNavigator() {
   return (
-    <Stack.Navigator
-      initialRouteName="Login"
-      screenOptions={{
-        headerShown: false,
-      }}
-    >
-      {/* Auth Stack */}
-      <Stack.Screen 
-        name="Login" 
-        component={LoginScreen}
-      />
-      
-      {/* Main App Stack */}
-      <Stack.Screen 
-        name="Home" 
-        component={TabNavigator}
-      />
-      
-      {/* Modal/Overlay Screens */}
-      <Stack.Screen 
-        name="EditProfile" 
+    <Stack.Navigator initialRouteName="Login" screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="Home" component={TabNavigator} />
+      <Stack.Screen
+        name="EditProfile"
         component={EditProfileScreen}
-        options={{
-          headerShown: false,
-          presentation: 'modal',
-        }}
+        options={{ headerShown: false, presentation: 'modal' }}
       />
-      
-      <Stack.Screen 
-        name="PersonalityQuiz" 
+      <Stack.Screen
+        name="PersonalityQuiz"
         component={QuizWithFirebase}
         options={{
           headerShown: true,
-          headerTitle: "Personality Quiz",
-          headerBackTitle: "Back",
+          headerTitle: 'Personality Quiz',
+          headerBackTitle: 'Back',
           presentation: 'modal',
         }}
       />
-      
-      <Stack.Screen 
-        name="LifestyleQuiz" 
+      <Stack.Screen
+        name="LifestyleQuiz"
         component={LifestyleQuizWithFirebase}
         options={{
           headerShown: true,
-          headerTitle: "Lifestyle Quiz",
-          headerBackTitle: "Back",
+          headerTitle: 'Lifestyle Quiz',
+          headerBackTitle: 'Back',
           presentation: 'modal',
+        }}
+      />
+      <Stack.Screen
+        name="ChatRoom"
+        component={ChatRoom}
+        options={{
+          headerShown: true,
+          headerTitle: 'Chat',
         }}
       />
     </Stack.Navigator>
   );
 }
 
-// Main App Component
 export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

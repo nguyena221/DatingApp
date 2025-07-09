@@ -1,4 +1,5 @@
 import { Alert } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage"; // add this
 import { storeUser, checkTestUser } from "../backend/UserService";
 
 export const UseLoginHandlers = ({
@@ -8,14 +9,15 @@ export const UseLoginHandlers = ({
   lastN,
   birthDate,
   setLoginStatus,
-  login, // Add this parameter
+  login,
 }) => {
   const handleCheck = async () => {
     try {
       const res = await checkTestUser(email, pass);
       if (res.success) {
+        await AsyncStorage.setItem("currentUserEmail", email); // ✅ Save to AsyncStorage
         setLoginStatus("Login success!");
-        login(email); // Set the current user
+        login(email); // optional if using context
         Alert.alert("Success", res.message);
         return true;
       } else {
@@ -36,11 +38,12 @@ export const UseLoginHandlers = ({
         password: pass,
         firstName: firstN,
         lastName: lastN,
-        birthDate: birthDate, // Store as-is from the input
+        birthDate,
       };
 
       await storeUser(user);
-      login(email); // Set the current user after registration
+      await AsyncStorage.setItem("currentUserEmail", email); // ✅ Save to AsyncStorage
+      login(email);
       setLoginStatus("Registration success!");
       Alert.alert("Success", "User registered successfully.");
       return true;
