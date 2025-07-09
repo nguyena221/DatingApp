@@ -1,29 +1,22 @@
+// contexts/UserContext.js
 import React, { createContext, useContext, useState } from 'react';
 
 const UserContext = createContext();
 
 export const UserProvider = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState(null);
+  const [user, setUser] = useState(null);
 
-  const login = (email) => {
-    setCurrentUser({ email });
-  };
-
-  const logout = () => {
-    setCurrentUser(null);
+  // ✅ manually sets the user
+  const login = ({ email }) => {
+    setUser({ email });
   };
 
   return (
-    <UserContext.Provider value={{ currentUser, login, logout }}>
+    <UserContext.Provider value={{ user, setUser, login }}>
       {children}
     </UserContext.Provider>
   );
 };
 
-export const useUser = () => {
-  const context = useContext(UserContext);
-  if (!context) {
-    throw new Error('useUser must be used within a UserProvider');
-  }
-  return context;
-};
+// Custom hook so you can do: const { user, login } = useUser();
+export const useUser = () => useContext(UserContext);

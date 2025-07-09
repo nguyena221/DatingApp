@@ -16,11 +16,12 @@ import DiscoverPage from './components/DiscoverPage';
 import EditProfileScreen from './components/EditProfileScreen';
 import QuizWithFirebase from './components/PersonalityQuiz';
 import LifestyleQuizWithFirebase from './components/LifestyleQuiz';
+import MessagesScreen from './screens/MessagesScreen'
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// Placeholder screen for Messages
+/* // Placeholder screen for Messages
 function MessagesScreen() {
   return (
     <View style={styles.placeholderContainer}>
@@ -28,7 +29,7 @@ function MessagesScreen() {
       <Text style={styles.placeholderSubtext}>Coming Soon!</Text>
     </View>
   );
-}
+} */
 
 // Tab Navigator Component
 function TabNavigator() {
