@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,54 +17,69 @@ import EditProfileScreen from './components/EditProfileScreen';
 import QuizWithFirebase from './components/PersonalityQuiz';
 import LifestyleQuizWithFirebase from './components/LifestyleQuiz';
 import MessagesScreen from './screens/MessagesScreen';
-import ChatRoom from './screens/ChatRoom'; // ✅ NEW SCREEN
+import ChatRoom from './screens/ChatRoom';
+import AddBookScreen from './components/AddBookScreen'
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function TabNavigator() {
   const insets = useSafeAreaInsets();
+  const [scrollY] = useState(new Animated.Value(0));
+  
+  // Animate tab bar based on scroll
+  const tabBarTranslateY = scrollY.interpolate({
+    inputRange: [0, 100],
+    outputRange: [0, 100], // Hide tab bar by moving it down
+    extrapolate: 'clamp',
+  });
 
   return (
-    <Tab.Navigator
-      screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused, color, size }) => {
-          let iconName;
+    <View style={{ flex: 1 }}>
+      <Tab.Navigator
+        screenOptions={({ route }) => ({
+          tabBarIcon: ({ focused, color, size }) => {
+            let iconName;
 
-          if (route.name === 'Home') {
-            iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'Discover') {
-            iconName = focused ? 'globe' : 'globe-outline';
-          } else if (route.name === 'Messages') {
-            iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
-          } else if (route.name === 'Profile') {
-            iconName = focused ? 'person' : 'person-outline';
-          }
+            if (route.name === 'Home') {
+              iconName = focused ? 'home' : 'home-outline';
+            } else if (route.name === 'Discover') {
+              iconName = focused ? 'globe' : 'globe-outline';
+            } else if (route.name === 'Messages') {
+              iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
+            } else if (route.name === 'Profile') {
+              iconName = focused ? 'person' : 'person-outline';
+            }
 
-          return <Ionicons name={iconName} size={size} color={color} />;
-        },
-        tabBarActiveTintColor: '#667eea',
-        tabBarInactiveTintColor: 'gray',
-        tabBarStyle: {
-          backgroundColor: 'white',
-          borderTopWidth: 1,
-          borderTopColor: '#e0e0e0',
-          height: 60 + insets.bottom,
-          paddingBottom: insets.bottom + 8,
-          paddingTop: 8,
-        },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '500',
-        },
-        headerShown: false,
-      })}
-    >
-      <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Discover" component={DiscoverPage} />
-      <Tab.Screen name="Messages" component={MessagesScreen} />
-      <Tab.Screen name="Profile" component={PageSnapContainer} />
-    </Tab.Navigator>
+            return <Ionicons name={iconName} size={size} color={color} />;
+          },
+          tabBarActiveTintColor: '#667eea',
+          tabBarInactiveTintColor: 'gray',
+          tabBarStyle: {
+            position: 'absolute',
+            backgroundColor: 'white',
+            borderTopWidth: 1,
+            borderTopColor: '#e0e0e0',
+            height: 60 + insets.bottom,
+            paddingBottom: insets.bottom + 8,
+            paddingTop: 8,
+            transform: [{ translateY: tabBarTranslateY }],
+          },
+          tabBarLabelStyle: {
+            fontSize: 12,
+            fontWeight: '500',
+          },
+          headerShown: false,
+        })}
+      >
+        <Tab.Screen name="Home" component={HomeScreen} />
+        <Tab.Screen name="Discover" component={DiscoverPage} />
+        <Tab.Screen name="Messages" component={MessagesScreen} />
+        <Tab.Screen name="Profile">
+          {() => <PageSnapContainer scrollY={scrollY} />}
+        </Tab.Screen>
+      </Tab.Navigator>
+    </View>
   );
 }
 
@@ -77,6 +92,15 @@ function AppNavigator() {
         name="EditProfile"
         component={EditProfileScreen}
         options={{ headerShown: false, presentation: 'modal' }}
+      />
+      <Stack.Screen
+        name="AddBook"
+        component={AddBookScreen}
+        options={{ 
+          headerShown: false, 
+          presentation: 'modal',
+          animationTypeForReplace: 'push'
+        }}
       />
       <Stack.Screen
         name="PersonalityQuiz"

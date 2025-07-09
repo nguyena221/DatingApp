@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
     StyleSheet, 
     Text, 
@@ -10,112 +10,52 @@ import {
     SafeAreaView,
     StatusBar,
     Linking,
-    Alert
+    Alert,
+    Animated
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useUser } from '../contexts/UserContext';
+import { useFocusEffect } from '@react-navigation/native';
+import { 
+    getUserWidgetData, 
+    removeWidgetItem, 
+    updateWidgetItem 
+} from '../backend/UserService';
 
 const { width, height } = Dimensions.get('window');
 
-const FavoriteBooksWidget = () => {
+const FavoriteBooksWidget = ({ navigation }) => {
     const [isExpanded, setIsExpanded] = useState(false);
-    const [books] = useState([
-        { 
-            id: 1, 
-            title: 'The Seven Husbands of Evelyn Hugo', 
-            author: 'Taylor Jenkins Reid',
-            year: 2017, 
-            genre: 'Fiction', 
-            rating: 5, 
-            status: 'read',
-            emoji: '📚',
-            review: 'Absolutely captivating! The storytelling was phenomenal and I couldn\'t put it down.',
-            goodreadsUrl: 'https://www.goodreads.com/book/show/32620332-the-seven-husbands-of-evelyn-hugo'
-        },
-        { 
-            id: 2, 
-            title: 'Project Hail Mary', 
-            author: 'Andy Weir',
-            year: 2021, 
-            genre: 'Sci-Fi', 
-            rating: 5, 
-            status: 'read',
-            emoji: '🚀',
-            review: 'Perfect blend of science and humor. Made me laugh and cry at the same time!',
-            goodreadsUrl: 'https://www.goodreads.com/book/show/54493401-project-hail-mary'
-        },
-        { 
-            id: 3, 
-            title: 'The Midnight Library', 
-            author: 'Matt Haig',
-            year: 2020, 
-            genre: 'Philosophy', 
-            rating: 4, 
-            status: 'read',
-            emoji: '🌙',
-            review: 'Beautiful exploration of life\'s possibilities. Really made me think about choices.',
-            goodreadsUrl: 'https://www.goodreads.com/book/show/52578297-the-midnight-library'
-        },
-        { 
-            id: 4, 
-            title: 'Atomic Habits', 
-            author: 'James Clear',
-            year: 2018, 
-            genre: 'Self-Help', 
-            rating: 5, 
-            status: 'read',
-            emoji: '⚡',
-            review: 'Life-changing! Applied so many concepts and actually saw results.',
-            goodreadsUrl: 'https://www.goodreads.com/book/show/40121378-atomic-habits'
-        },
-        { 
-            id: 5, 
-            title: 'The Song of Achilles', 
-            author: 'Madeline Miller',
-            year: 2011, 
-            genre: 'Fantasy', 
-            rating: 4, 
-            status: 'read',
-            emoji: '⚔️',
-            review: 'Beautiful retelling of Greek mythology. The writing was absolutely gorgeous.',
-            goodreadsUrl: 'https://www.goodreads.com/book/show/11250317-the-song-of-achilles'
-        },
-        { 
-            id: 6, 
-            title: 'Klara and the Sun', 
-            author: 'Kazuo Ishiguro',
-            year: 2021, 
-            genre: 'Sci-Fi', 
-            rating: 4, 
-            status: 'currently-reading',
-            emoji: '☀️',
-            review: 'Currently reading - loving the unique perspective so far!',
-            goodreadsUrl: 'https://www.goodreads.com/book/show/54120408-klara-and-the-sun'
-        },
-        { 
-            id: 7, 
-            title: 'Educated', 
-            author: 'Tara Westover',
-            year: 2018, 
-            genre: 'Memoir', 
-            rating: 5, 
-            status: 'read',
-            emoji: '🎓',
-            review: 'Incredible memoir about education and family. Powerful and eye-opening.',
-            goodreadsUrl: 'https://www.goodreads.com/book/show/35133922-educated'
-        },
-        { 
-            id: 8, 
-            title: 'The Silent Patient', 
-            author: 'Alex Michaelides',
-            year: 2019, 
-            genre: 'Thriller', 
-            rating: 3, 
-            status: 'want-to-read',
-            emoji: '🤫',
-            review: 'On my reading list - heard great things about the plot twist!',
-            goodreadsUrl: 'https://www.goodreads.com/book/show/40097951-the-silent-patient'
-        },
-    ]);
+    const [books, setBooks] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const { user } = useUser();
+
+    // Load books from database when component mounts or regains focus
+    useFocusEffect(
+        useCallback(() => {
+            loadBooksFromDatabase();
+        }, [])
+    );
+
+    const loadBooksFromDatabase = async () => {
+        try {
+            setLoading(true);
+            const userEmail = user?.email || "test2@example.com";
+            const result = await getUserWidgetData(userEmail, 'books');
+            
+            if (result.success && result.data) {
+                setBooks(result.data.books || []);
+            } else {
+                console.log("No books data found, starting with empty array");
+                setBooks([]);
+            }
+        } catch (error) {
+            console.error("Error loading books:", error);
+            setBooks([]);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const readBooks = books.filter(b => b.status === 'read');
     const averageRating = readBooks.length > 0 ? (readBooks.reduce((sum, book) => sum + book.rating, 0) / readBooks.length).toFixed(1) : 0;
@@ -130,7 +70,28 @@ const FavoriteBooksWidget = () => {
         setIsExpanded(false);
     };
 
+    // Navigate to AddBook screen (similar to EditProfile navigation)
+    const handleAddBook = () => {
+        console.log('📚 Navigating to AddBook screen');
+        console.log('📚 Navigation object:', navigation);
+        
+        // Close the expanded modal first
+        setIsExpanded(false);
+        
+        // Then navigate after a small delay to ensure modal is closed
+        setTimeout(() => {
+            if (navigation && navigation.navigate) {
+                navigation.navigate('AddBook');
+            } else {
+                console.error('❌ Navigation not available');
+                Alert.alert('Error', 'Navigation not available. Please try again.');
+            }
+        }, 300); // Small delay to ensure modal close animation completes
+    };
+
     const openGoodreadsLink = async (url) => {
+        if (!url) return;
+        
         try {
             const supported = await Linking.canOpenURL(url);
             if (supported) {
@@ -143,11 +104,80 @@ const FavoriteBooksWidget = () => {
         }
     };
 
-    const renderStars = (rating, size = 12) => {
+    const handleRemoveBook = async (bookId) => {
+        console.log('🗑️ handleRemoveBook called with bookId:', bookId);
+        
+        Alert.alert(
+            'Remove Book',
+            'Are you sure you want to remove this book from your collection?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                { 
+                    text: 'Remove', 
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            console.log('🗑️ User confirmed deletion');
+                            const userEmail = user?.email || "test2@example.com";
+                            console.log('🗑️ Removing book from database for user:', userEmail);
+                            
+                            const result = await removeWidgetItem(userEmail, 'books', bookId);
+                            console.log('🗑️ Database result:', result);
+                            
+                            if (result.success) {
+                                console.log('✅ Book removed from database, updating local state');
+                                setBooks(prevBooks => {
+                                    const updatedBooks = prevBooks.filter(book => book.id !== bookId);
+                                    console.log('✅ Updated books array:', updatedBooks);
+                                    return updatedBooks;
+                                });
+                                Alert.alert('Success', 'Book removed successfully!');
+                            } else {
+                                console.log('❌ Database removal failed:', result.message);
+                                Alert.alert('Error', result.message || 'Failed to remove book');
+                            }
+                        } catch (error) {
+                            console.error("❌ Error removing book:", error);
+                            Alert.alert('Error', 'Failed to remove book');
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleUpdateBookRating = async (bookId, newRating) => {
+        try {
+            const userEmail = user?.email || "test2@example.com";
+            const result = await updateWidgetItem(userEmail, 'books', bookId, { rating: newRating });
+            
+            if (result.success) {
+                setBooks(prevBooks => 
+                    prevBooks.map(book => 
+                        book.id === bookId ? { ...book, rating: newRating } : book
+                    )
+                );
+            } else {
+                Alert.alert('Error', result.message || 'Failed to update rating');
+            }
+        } catch (error) {
+            console.error("Error updating rating:", error);
+            Alert.alert('Error', 'Failed to update rating');
+        }
+    };
+
+    const renderStars = (rating, size = 12, interactive = false, bookId = null) => {
         return Array.from({ length: 5 }, (_, i) => (
-            <Text key={i} style={[styles.star, { fontSize: size }]}>
-                {i < rating ? '★' : '☆'}
-            </Text>
+            <TouchableOpacity
+                key={i}
+                disabled={!interactive}
+                onPress={interactive ? () => handleUpdateBookRating(bookId, i + 1) : undefined}
+                activeOpacity={interactive ? 0.7 : 1}
+            >
+                <Text style={[styles.star, { fontSize: size }]}>
+                    {i < rating ? '★' : '☆'}
+                </Text>
+            </TouchableOpacity>
         ));
     };
 
@@ -169,9 +199,62 @@ const FavoriteBooksWidget = () => {
         }
     };
 
+    // Swipeable book item component
+    const SwipeableBookItem = ({ book, onRemove, children }) => {
+        const translateX = new Animated.Value(0);
+
+        const onSwipeLeft = () => {
+            Animated.timing(translateX, {
+                toValue: -80,
+                duration: 200,
+                useNativeDriver: true,
+            }).start();
+        };
+
+        const onSwipeRight = () => {
+            Animated.timing(translateX, {
+                toValue: 0,
+                duration: 200,
+                useNativeDriver: true,
+            }).start();
+        };
+
+        return (
+            <View style={styles.swipeableContainer}>
+                <View style={styles.deleteBackground}>
+                    <TouchableOpacity
+                        style={styles.deleteButton}
+                        onPress={() => {
+                            console.log('🗑️ Delete button pressed for book:', book.id);
+                            onRemove(book.id);
+                        }}
+                        activeOpacity={0.7}
+                    >
+                        <Text style={styles.deleteButtonText}>🗑️</Text>
+                    </TouchableOpacity>
+                </View>
+                <Animated.View
+                    style={[
+                        styles.swipeableContent,
+                        { transform: [{ translateX }] }
+                    ]}
+                >
+                    <TouchableOpacity
+                        onLongPress={onSwipeLeft}
+                        onPress={onSwipeRight}
+                        style={styles.bookItemTouchable}
+                        activeOpacity={0.7}
+                    >
+                        {children}
+                    </TouchableOpacity>
+                </Animated.View>
+            </View>
+        );
+    };
+
     // Compact Widget View
     const CompactWidget = () => (
-        <TouchableOpacity onPress={openExpanded} style={styles.widgetContainer}>
+        <TouchableOpacity onPress={openExpanded} style={styles.widgetContainer} activeOpacity={0.8}>
             <LinearGradient
                 colors={['#8e44ad', '#3498db']}
                 style={styles.container}
@@ -186,27 +269,33 @@ const FavoriteBooksWidget = () => {
                     </View>
                 </View>
 
-                <ScrollView style={styles.booksList} showsVerticalScrollIndicator={false}>
-                    {books.slice(0, 3).map((book) => (
-                        <View key={book.id} style={styles.bookItem}>
-                            <View style={styles.bookLeft}>
-                                <Text style={styles.bookEmoji}>{book.emoji}</Text>
-                                <View style={styles.bookInfo}>
-                                    <Text style={styles.bookTitle} numberOfLines={1}>{book.title}</Text>
-                                    <Text style={styles.bookAuthor} numberOfLines={1}>{book.author}</Text>
+                {loading ? (
+                    <View style={styles.loadingContainer}>
+                        <Text style={styles.loadingText}>Loading books...</Text>
+                    </View>
+                ) : (
+                    <ScrollView style={styles.booksList} showsVerticalScrollIndicator={false}>
+                        {books.slice(0, 3).map((book) => (
+                            <View key={book.id} style={styles.bookItem}>
+                                <View style={styles.bookLeft}>
+                                    <Text style={styles.bookEmoji}>{book.emoji}</Text>
+                                    <View style={styles.bookInfo}>
+                                        <Text style={styles.bookTitle} numberOfLines={1}>{book.title}</Text>
+                                        <Text style={styles.bookAuthor} numberOfLines={1}>{book.author}</Text>
+                                    </View>
+                                </View>
+                                <View style={styles.compactRightSection}>
+                                    <View style={[styles.statusDot, { backgroundColor: getStatusColor(book.status) }]} />
+                                    {book.status === 'read' && (
+                                        <View style={styles.ratingContainer}>
+                                            {renderStars(book.rating, 10)}
+                                        </View>
+                                    )}
                                 </View>
                             </View>
-                            <View style={styles.compactRightSection}>
-                                <View style={[styles.statusDot, { backgroundColor: getStatusColor(book.status) }]} />
-                                {book.status === 'read' && (
-                                    <View style={styles.ratingContainer}>
-                                        {renderStars(book.rating, 10)}
-                                    </View>
-                                )}
-                            </View>
-                        </View>
-                    ))}
-                </ScrollView>
+                        ))}
+                    </ScrollView>
+                )}
 
                 <View style={styles.expandHint}>
                     <Text style={styles.expandHintText}>Tap to see all {books.length} books</Text>
@@ -220,7 +309,7 @@ const FavoriteBooksWidget = () => {
         <Modal
             visible={isExpanded}
             animationType="slide"
-            presentationStyle="pageSheet"
+            presentationStyle="fullScreen"
             onRequestClose={closeExpanded}
         >
             <StatusBar barStyle="light-content" backgroundColor="#8e44ad" />
@@ -233,7 +322,7 @@ const FavoriteBooksWidget = () => {
                 <SafeAreaView style={styles.expandedSafeArea}>
                     {/* Header */}
                     <View style={styles.expandedHeader}>
-                        <TouchableOpacity onPress={closeExpanded} style={styles.closeButton}>
+                        <TouchableOpacity onPress={closeExpanded} style={styles.closeButton} activeOpacity={0.7}>
                             <Text style={styles.closeButtonText}>✕</Text>
                         </TouchableOpacity>
                         <Text style={styles.expandedTitle}>📖 My Reading Journey</Text>
@@ -257,56 +346,90 @@ const FavoriteBooksWidget = () => {
                     </View>
 
                     {/* Genre Tags */}
-                    <View style={styles.genreContainer}>
-                        <Text style={styles.genreTitle}>Favorite Genres:</Text>
-                        <View style={styles.genreTags}>
-                            {favoriteGenres.map((genre, index) => (
-                                <View key={index} style={styles.genreTag}>
-                                    <Text style={styles.genreText}>{genre}</Text>
-                                </View>
-                            ))}
+                    {favoriteGenres.length > 0 && (
+                        <View style={styles.genreContainer}>
+                            <Text style={styles.genreTitle}>Favorite Genres:</Text>
+                            <View style={styles.genreTags}>
+                                {favoriteGenres.map((genre, index) => (
+                                    <View key={index} style={styles.genreTag}>
+                                        <Text style={styles.genreText}>{genre}</Text>
+                                    </View>
+                                ))}
+                            </View>
                         </View>
-                    </View>
+                    )}
 
                     {/* Books List */}
-                    <ScrollView style={styles.expandedBooksList} showsVerticalScrollIndicator={false}>
-                        {books.map((book) => (
-                            <TouchableOpacity 
-                                key={book.id} 
-                                style={styles.expandedBookItem}
-                                onPress={() => openGoodreadsLink(book.goodreadsUrl)}
-                            >
-                                <View style={styles.expandedBookHeader}>
-                                    <View style={styles.bookLeft}>
-                                        <Text style={styles.expandedBookEmoji}>{book.emoji}</Text>
-                                        <View style={styles.bookInfo}>
-                                            <Text style={styles.expandedBookTitle}>{book.title}</Text>
-                                            <Text style={styles.expandedBookAuthor}>by {book.author} ({book.year})</Text>
-                                            <View style={styles.expandedBookMeta}>
-                                                <View style={[styles.statusBadge, { backgroundColor: getStatusColor(book.status) }]}>
-                                                    <Text style={styles.statusBadgeText}>{getStatusText(book.status)}</Text>
+                    <ScrollView 
+                        style={styles.expandedBooksList} 
+                        showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
+                    >
+                        {books.length === 0 ? (
+                            <View style={styles.emptyState}>
+                                <Text style={styles.emptyStateText}>No books in your collection yet!</Text>
+                                <Text style={styles.emptyStateSubtext}>Add your first book to get started</Text>
+                            </View>
+                        ) : (
+                            books.map((book) => (
+                                <View key={book.id} style={styles.swipeableContainer}>
+                                    <TouchableOpacity 
+                                        style={styles.expandedBookItem}
+                                        onPress={() => openGoodreadsLink(book.goodreadsUrl)}
+                                        activeOpacity={0.7}
+                                    >
+                                        <View style={styles.expandedBookHeader}>
+                                            <View style={styles.bookLeft}>
+                                                <Text style={styles.expandedBookEmoji}>{book.emoji}</Text>
+                                                <View style={styles.bookInfo}>
+                                                    <Text style={styles.expandedBookTitle}>{book.title}</Text>
+                                                    <Text style={styles.expandedBookAuthor}>by {book.author} ({book.year})</Text>
+                                                    <View style={styles.expandedBookMeta}>
+                                                        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(book.status) }]}>
+                                                            <Text style={styles.statusBadgeText}>{getStatusText(book.status)}</Text>
+                                                        </View>
+                                                        {book.status === 'read' && (
+                                                            <View style={styles.expandedRatingContainer}>
+                                                                {renderStars(book.rating, 14, true, book.id)}
+                                                            </View>
+                                                        )}
+                                                    </View>
                                                 </View>
-                                                {book.status === 'read' && (
-                                                    <View style={styles.expandedRatingContainer}>
-                                                        {renderStars(book.rating, 14)}
+                                            </View>
+                                            <View style={styles.bookActions}>
+                                                {book.goodreadsUrl && (
+                                                    <View style={styles.goodreadsIcon}>
+                                                        <Text style={styles.goodreadsText}>📱</Text>
                                                     </View>
                                                 )}
+                                                {/* ✅ ADD VISIBLE DELETE BUTTON */}
+                                                <TouchableOpacity
+                                                    style={styles.deleteIconButton}
+                                                    onPress={() => {
+                                                        console.log('🗑️ Delete button pressed for book:', book.id, book.title);
+                                                        handleRemoveBook(book.id);
+                                                    }}
+                                                    activeOpacity={0.7}
+                                                >
+                                                    <Text style={styles.deleteIconText}>🗑️</Text>
+                                                </TouchableOpacity>
                                             </View>
                                         </View>
-                                    </View>
-                                    <View style={styles.goodreadsIcon}>
-                                        <Text style={styles.goodreadsText}>📱</Text>
-                                    </View>
+                                        {book.review && (
+                                            <Text style={styles.bookReview}>"{book.review}"</Text>
+                                        )}
+                                    </TouchableOpacity>
                                 </View>
-                                {book.review && (
-                                    <Text style={styles.bookReview}>"{book.review}"</Text>
-                                )}
-                            </TouchableOpacity>
-                        ))}
+                            ))
+                        )}
                     </ScrollView>
 
-                    {/* Add Button */}
-                    <TouchableOpacity style={styles.expandedAddButton}>
+                    {/* Add Button - Navigate like EditProfile */}
+                    <TouchableOpacity 
+                        style={styles.expandedAddButton}
+                        onPress={handleAddBook}
+                        activeOpacity={0.8}
+                    >
                         <Text style={styles.expandedAddButtonText}>+ Add New Book</Text>
                     </TouchableOpacity>
                 </SafeAreaView>
@@ -419,6 +542,17 @@ const styles = StyleSheet.create({
         fontStyle: 'italic',
     },
 
+    // Loading state
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    loadingText: {
+        color: 'rgba(255, 255, 255, 0.8)',
+        fontSize: 14,
+    },
+
     // Expanded Modal Styles
     expandedContainer: {
         flex: 1,
@@ -510,13 +644,30 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255, 255, 255, 0.15)',
         borderRadius: 12,
         padding: 16,
-        marginBottom: 12,
     },
     expandedBookHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
         marginBottom: 8,
+    },
+    bookActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    deleteIconButton: {
+        backgroundColor: 'rgba(255, 71, 87, 0.2)',
+        borderRadius: 20,
+        width: 36,
+        height: 36,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 71, 87, 0.4)',
+    },
+    deleteIconText: {
+        fontSize: 16,
     },
     expandedBookEmoji: {
         fontSize: 24,
@@ -577,6 +728,55 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
         textAlign: 'center',
+    },
+    
+    // Empty state
+    emptyState: {
+        alignItems: 'center',
+        paddingVertical: 40,
+    },
+    emptyStateText: {
+        color: 'white',
+        fontSize: 18,
+        fontWeight: '600',
+        marginBottom: 8,
+    },
+    emptyStateSubtext: {
+        color: 'rgba(255, 255, 255, 0.7)',
+        fontSize: 14,
+    },
+    
+    // Swipeable item styles
+    swipeableContainer: {
+        position: 'relative',
+        marginBottom: 12,
+    },
+    deleteBackground: {
+        position: 'absolute',
+        right: 0,
+        top: 0,
+        bottom: 0,
+        width: 80,
+        backgroundColor: '#ff4757',
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    deleteButton: {
+        width: '100%',
+        height: '100%',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    deleteButtonText: {
+        fontSize: 24,
+    },
+    swipeableContent: {
+        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+        borderRadius: 12,
+    },
+    bookItemTouchable: {
+        width: '100%',
     },
 });
 

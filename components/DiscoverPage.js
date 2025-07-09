@@ -162,7 +162,7 @@ function DiscoverMainScreen({ navigation }) {
 
       <View style={styles.headerContainer}>
         <Text style={styles.text}>Discover</Text>
-        <Text style={styles.subtitle}>Find new people here!</Text>
+        <Text style={styles.subtitle}>New potential partners everyday!</Text>
       </View>
 
       <View style={styles.cardContainer}>

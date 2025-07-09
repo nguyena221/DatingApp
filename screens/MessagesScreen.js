@@ -28,9 +28,9 @@ export default function ChatRoom() {
 
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
-  const [backgroundColor, setBackgroundColor] = useState("#f8f9fa"); // Default fallback
+  const [backgroundColor, setBackgroundColor] = useState("#f8f9fa");
 
-  // Fetch background color from Firestore
+  // Fetch background color of the other user
   useEffect(() => {
     const fetchColor = async () => {
       try {
@@ -52,7 +52,7 @@ export default function ChatRoom() {
     if (otherUser) fetchColor();
   }, [otherUser]);
 
-  // Load messages
+  // Listen for new messages
   useEffect(() => {
     const messagesRef = collection(db, "chats", chatId, "messages");
     const q = query(messagesRef, orderBy("timestamp", "asc"));
