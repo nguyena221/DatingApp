@@ -440,3 +440,301 @@ export async function storeLocationSettings(email, locationSettings) {
     return { success: false, message: "Failed to save location settings" };
   }
 }
+
+export async function storeSelectedWidgets(email, selectedWidgets) {
+  try {
+    const userID = sanitizeEmail(email);
+    const userDocRef = doc(db, "users", userID);
+    
+    await updateDoc(userDocRef, {
+      selectedWidgets: selectedWidgets // Array of 4 widget IDs
+    });
+    
+    console.log("Selected widgets stored successfully");
+    return { success: true, message: "Widget selection saved!" };
+  } catch (error) {
+    console.error("Error storing selected widgets:", error);
+    return { success: false, message: "Failed to save widget selection" };
+  }
+}
+
+export async function storeWidgetData(email, widgetType, widgetData) {
+  try {
+    const userID = sanitizeEmail(email);
+    const userDocRef = doc(db, "users", userID);
+    
+    // Store widget data in a nested object structure
+    const updateField = `widgetData.${widgetType}`;
+    
+    await updateDoc(userDocRef, {
+      [updateField]: {
+        ...widgetData,
+        lastUpdated: new Date().toISOString()
+      }
+    });
+    
+    console.log(`${widgetType} widget data stored successfully`);
+    return { success: true, message: "Widget data saved!" };
+  } catch (error) {
+    console.error(`Error storing ${widgetType} widget data:`, error);
+    return { success: false, message: "Failed to save widget data" };
+  }
+}
+
+export async function getWidgetData(email, widgetType) {
+  try {
+    const userID = sanitizeEmail(email);
+    const docRef = doc(db, "users", userID);
+    const docSnap = await getDoc(docRef);
+
+    if (!docSnap.exists()) {
+      return { success: false, message: "User not found" };
+    }
+
+    const userData = docSnap.data();
+    const widgetData = userData.widgetData?.[widgetType];
+    
+    return { 
+      success: true, 
+      data: widgetData || null
+    };
+  } catch (error) {
+    console.error(`Error getting ${widgetType} widget data:`, error);
+    return { success: false, message: "Failed to get widget data" };
+  }
+}
+
+// Add these functions to your existing UserService.js
+
+// Helper function to get the correct array name for each widget type
+const getWidgetArrayName = (widgetType) => {
+  const arrayNames = {
+    travel: 'destinations',
+    movies: 'movies',
+    books: 'books',
+    foodie: 'spots'
+  };
+  return arrayNames[widgetType];
+};
+
+// Initialize default widget data for a specific widget type
+export async function initializeWidgetData(email, widgetType) {
+  try {
+    const userID = sanitizeEmail(email);
+    const docRef = doc(db, "users", userID);
+    const docSnap = await getDoc(docRef);
+
+    if (!docSnap.exists()) {
+      return { success: false, message: "User not found" };
+    }
+
+    const userData = docSnap.data();
+    const existingWidgetData = userData.widgetData || {};
+
+    // Don't initialize if data already exists
+    if (existingWidgetData[widgetType]) {
+      return { success: true, message: "Widget data already exists" };
+    }
+
+    const arrayName = getWidgetArrayName(widgetType);
+    if (!arrayName) {
+      return { success: false, message: "Unknown widget type" };
+    }
+
+    // Default data for each widget type
+    const defaultData = {
+      travel: {
+        destinations: [],
+        lastUpdated: new Date().toISOString()
+      },
+      movies: {
+        movies: [],
+        lastUpdated: new Date().toISOString()
+      },
+      books: {
+        books: [],
+        lastUpdated: new Date().toISOString()
+      },
+      foodie: {
+        spots: [],
+        lastUpdated: new Date().toISOString()
+      }
+    };
+
+    const updateField = `widgetData.${widgetType}`;
+    await updateDoc(docRef, {
+      [updateField]: defaultData[widgetType]
+    });
+
+    console.log(`Initialized ${widgetType} widget data`);
+    return { success: true, message: "Widget data initialized!" };
+  } catch (error) {
+    console.error(`Error initializing ${widgetType} widget data:`, error);
+    return { success: false, message: "Failed to initialize widget data" };
+  }
+}
+
+// Add new item to widget
+export async function addWidgetItem(email, widgetType, newItem) {
+  try {
+    const userID = sanitizeEmail(email);
+    const docRef = doc(db, "users", userID);
+    const docSnap = await getDoc(docRef);
+
+    if (!docSnap.exists()) {
+      return { success: false, message: "User not found" };
+    }
+
+    const userData = docSnap.data();
+    let currentWidgetData = userData.widgetData?.[widgetType];
+
+    // Initialize if doesn't exist
+    if (!currentWidgetData) {
+      await initializeWidgetData(email, widgetType);
+      const refreshedDoc = await getDoc(docRef);
+      const refreshedData = refreshedDoc.data();
+      currentWidgetData = refreshedData.widgetData[widgetType];
+    }
+
+    const arrayName = getWidgetArrayName(widgetType);
+    const currentItems = currentWidgetData[arrayName] || [];
+
+    // Generate new ID
+    const newId = currentItems.length > 0 ? Math.max(...currentItems.map(item => item.id || 0)) + 1 : 1;
+    const itemWithId = { ...newItem, id: newId };
+
+    // Add new item
+    const updatedItems = [...currentItems, itemWithId];
+
+    const updateField = `widgetData.${widgetType}`;
+    await updateDoc(docRef, {
+      [updateField]: {
+        ...currentWidgetData,
+        [arrayName]: updatedItems,
+        lastUpdated: new Date().toISOString()
+      }
+    });
+
+    console.log(`Added new ${widgetType} item successfully`);
+    return { success: true, message: "Item added successfully!", newItem: itemWithId };
+  } catch (error) {
+    console.error(`Error adding ${widgetType} item:`, error);
+    return { success: false, message: "Failed to add item" };
+  }
+}
+
+// Remove item from widget
+export async function removeWidgetItem(email, widgetType, itemId) {
+  try {
+    const userID = sanitizeEmail(email);
+    const docRef = doc(db, "users", userID);
+    const docSnap = await getDoc(docRef);
+
+    if (!docSnap.exists()) {
+      return { success: false, message: "User not found" };
+    }
+
+    const userData = docSnap.data();
+    const currentWidgetData = userData.widgetData?.[widgetType];
+
+    if (!currentWidgetData) {
+      return { success: false, message: "Widget data not found" };
+    }
+
+    const arrayName = getWidgetArrayName(widgetType);
+    const currentItems = currentWidgetData[arrayName] || [];
+    const filteredItems = currentItems.filter(item => item.id !== itemId);
+
+    const updateField = `widgetData.${widgetType}`;
+    await updateDoc(docRef, {
+      [updateField]: {
+        ...currentWidgetData,
+        [arrayName]: filteredItems,
+        lastUpdated: new Date().toISOString()
+      }
+    });
+
+    console.log(`Removed ${widgetType} item successfully`);
+    return { success: true, message: "Item removed successfully!" };
+  } catch (error) {
+    console.error(`Error removing ${widgetType} item:`, error);
+    return { success: false, message: "Failed to remove item" };
+  }
+}
+
+// Update existing item in widget
+export async function updateWidgetItem(email, widgetType, itemId, updatedData) {
+  try {
+    const userID = sanitizeEmail(email);
+    const docRef = doc(db, "users", userID);
+    const docSnap = await getDoc(docRef);
+
+    if (!docSnap.exists()) {
+      return { success: false, message: "User not found" };
+    }
+
+    const userData = docSnap.data();
+    const currentWidgetData = userData.widgetData?.[widgetType];
+
+    if (!currentWidgetData) {
+      return { success: false, message: "Widget data not found" };
+    }
+
+    const arrayName = getWidgetArrayName(widgetType);
+    const currentItems = currentWidgetData[arrayName] || [];
+    const updatedItems = currentItems.map(item =>
+      item.id === itemId ? { ...item, ...updatedData } : item
+    );
+
+    const updateField = `widgetData.${widgetType}`;
+    await updateDoc(docRef, {
+      [updateField]: {
+        ...currentWidgetData,
+        [arrayName]: updatedItems,
+        lastUpdated: new Date().toISOString()
+      }
+    });
+
+    console.log(`Updated ${widgetType} item successfully`);
+    return { success: true, message: "Item updated successfully!" };
+  } catch (error) {
+    console.error(`Error updating ${widgetType} item:`, error);
+    return { success: false, message: "Failed to update item" };
+  }
+}
+
+// Get widget data for current user
+export async function getUserWidgetData(email, widgetType) {
+  try {
+    const userID = sanitizeEmail(email);
+    const docRef = doc(db, "users", userID);
+    const docSnap = await getDoc(docRef);
+
+    if (!docSnap.exists()) {
+      return { success: false, message: "User not found" };
+    }
+
+    const userData = docSnap.data();
+    const widgetData = userData.widgetData?.[widgetType];
+
+    if (!widgetData) {
+      // Initialize empty data if doesn't exist
+      await initializeWidgetData(email, widgetType);
+      return { 
+        success: true, 
+        data: { 
+          [getWidgetArrayName(widgetType)]: [], 
+          lastUpdated: new Date().toISOString() 
+        } 
+      };
+    }
+
+    return { 
+      success: true, 
+      data: widgetData
+    };
+  } catch (error) {
+    console.error(`Error getting ${widgetType} widget data:`, error);
+    return { success: false, message: "Failed to get widget data" };
+  }
+}

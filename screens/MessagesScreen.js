@@ -151,7 +151,9 @@ export default function MessagesScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Messages</Text>
+      <View style={{bottom:13}}>
+        <Text style={styles.title}>Messages</Text>
+      </View>
       {chats.length === 0 ? (
         <Text style={styles.emptyText}>No conversations yet</Text>
       ) : (

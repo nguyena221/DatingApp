@@ -9,10 +9,11 @@ import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, Image } from 'r
 const { height } = Dimensions.get('window');
 const Stack = createStackNavigator();
 
+// Create animated FlatList
+const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
+
 // Main profile view with snap functionality
-const ProfileSnapView = ({ navigation, profileBgColor, setProfileBgColor }) => {
-  const scrollY = useRef(new Animated.Value(0)).current;
-  
+const ProfileSnapView = ({ navigation, profileBgColor, setProfileBgColor, scrollY }) => {
   const pages = [
     { id: '1', component: ProfilePageStart },
     { id: '2', component: ProfilePageWidgets },
@@ -33,11 +34,11 @@ const ProfileSnapView = ({ navigation, profileBgColor, setProfileBgColor }) => {
 
   const handleScroll = Animated.event(
     [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-    { useNativeDriver: false }
+    { useNativeDriver: false } // Changed back to false to avoid the error
   );
 
   return (
-    <FlatList
+    <AnimatedFlatList
       data={pages}
       renderItem={renderPage}
       keyExtractor={(item) => item.id}
@@ -52,8 +53,12 @@ const ProfileSnapView = ({ navigation, profileBgColor, setProfileBgColor }) => {
 };
 
 // Stack Navigator Component
-const PageSnapContainer = () => {
+const PageSnapContainer = ({ scrollY }) => {
   const [profileBgColor, setProfileBgColor] = useState('#e3f2fd');
+  const localScrollY = useRef(new Animated.Value(0)).current;
+  
+  // Use passed scrollY if available, otherwise use local one
+  const activeScrollY = scrollY || localScrollY;
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -63,6 +68,7 @@ const PageSnapContainer = () => {
             navigation={navigation}
             profileBgColor={profileBgColor}
             setProfileBgColor={setProfileBgColor}
+            scrollY={activeScrollY}
           />
         )}
       </Stack.Screen>

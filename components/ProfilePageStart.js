@@ -194,7 +194,9 @@ export default function ProfilePageStart({ scrollY }) {
               <Text style={styles.nameText}>{userName}</Text>
               <Text style={styles.ageText}>Age: {userAge}</Text>
             </View>
-            <Text style={styles.sectionText}>Quick Facts</Text>
+            <View style={{bottom:20, right: 155}}>
+              <Text style={styles.sectionText}>Stats</Text>
+            </View>
             <View style={styles.sectionUnderline} />
 
             {selectedBanners && selectedBanners.length > 0 ? (
@@ -363,6 +365,7 @@ const styles = StyleSheet.create({
     color: "#333",
     textAlign: "center", // ✅ centers the text
     marginVertical: 16, // optional spacing
+    opacity: 0.5,
   },
   sectionUnderline: {
     height: 2,
@@ -370,10 +373,12 @@ const styles = StyleSheet.create({
     width: "90%", // or "100%" for full screen
     alignSelf: "center", // centers it horizontally
     marginBottom: 16,
+    bottom: 32
   },
   statsContainer: {
     paddingHorizontal: 20,
     gap: 12,
+    bottom: 40
   },
   statRow: {
     flexDirection: "row",

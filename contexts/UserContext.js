@@ -11,8 +11,18 @@ export const UserProvider = ({ children }) => {
     setUser({ email });
   };
 
+  const logout = () => {
+    setUser(null);
+  };
+
   return (
-    <UserContext.Provider value={{ user, setUser, login }}>
+    <UserContext.Provider value={{ 
+      user, 
+      currentUser: user, // ✅ Add currentUser alias for compatibility
+      setUser, 
+      login,
+      logout 
+    }}>
       {children}
     </UserContext.Provider>
   );

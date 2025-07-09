@@ -2,9 +2,17 @@ import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, Image, StatusBa
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getUserWithPersonality, storeSelectedBanners, uploadProfilePhoto, storeProfileBackgroundColor, calculateAge } from '../backend/UserService';
 import { useUser } from '../contexts/UserContext';
 import * as ImagePicker from 'expo-image-picker';
+import { 
+    getUserWithPersonality, 
+    storeSelectedBanners, 
+    uploadProfilePhoto, 
+    storeProfileBackgroundColor, 
+    calculateAge, 
+    storeSelectedWidgets,
+    initializeWidgetData
+} from '../backend/UserService';
 
 const { height } = Dimensions.get('window');
 
@@ -19,8 +27,10 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
     const [uploading, setUploading] = useState(false);
     const [userName, setUserName] = useState('Sarah Johnson');
     const [userAge, setUserAge] = useState('24');
-    const [originalBgColor, setOriginalBgColor] = useState(selectedColor); // Store original color
+    const [originalBgColor, setOriginalBgColor] = useState(selectedColor);
     const { currentUser } = useUser();
+    const [availableWidgets, setAvailableWidgets] = useState([]);
+    const [selectedWidgets, setSelectedWidgets] = useState([]);
 
     const colorOptions = [
         { name: 'Light Blue', color: '#e3f2fd', id: 1 },
@@ -140,7 +150,7 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
     const getProfilePhoto = async () => {
         try {
             // First try to load user's saved photo from database
-            const userEmail = "test2@example.com"; // Replace with actual user email
+            const userEmail = currentUser?.email || "test2@example.com";
             const result = await getUserWithPersonality(userEmail);
             
             if (result.success && result.user && result.user.profilePhotoURL) {
@@ -166,86 +176,145 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
     }, []);
 
     useEffect(() => {
-    const loadUserData = async () => {
-        try {
-            const userEmail = currentUser?.email || "test2@example.com"; // Use current user or fallback
-            
-            // Load personality data
-            const personalityResult = await getUserWithPersonality(userEmail);
-            let personalityQuizData = null;
-            let lifestyleQuizData = null;
+        const loadUserData = async () => {
+            try {
+                const userEmail = currentUser?.email || "test2@example.com";
 
-            if (personalityResult.success && personalityResult.user) {
-                personalityQuizData = personalityResult.user.personalityData;
-                lifestyleQuizData = personalityResult.user.personalityLifestyleData;
-                
-                // Load user name and age with better error handling
-                if (personalityResult.user.firstName && personalityResult.user.lastName) {
-                    setUserName(`${personalityResult.user.firstName} ${personalityResult.user.lastName}`);
-                }
-                
-                // Better age calculation with debugging
-                if (personalityResult.user.birthDate) {
-                    console.log("Birth date from database:", personalityResult.user.birthDate);
-                    try {
-                        const age = calculateAge(personalityResult.user.birthDate);
-                        console.log("Calculated age:", age);
-                        
-                        // Check if age is valid
-                        if (age && !isNaN(age) && age > 0) {
-                            setUserAge(age.toString());
-                        } else {
-                            console.warn("Invalid age calculated:", age);
+                // Load personality data
+                const personalityResult = await getUserWithPersonality(userEmail);
+                let personalityQuizData = null;
+                let lifestyleQuizData = null;
+
+                if (personalityResult.success && personalityResult.user) {
+                    personalityQuizData = personalityResult.user.personalityData;
+                    lifestyleQuizData = personalityResult.user.personalityLifestyleData;
+
+                    if (personalityResult.user.firstName && personalityResult.user.lastName) {
+                        setUserName(`${personalityResult.user.firstName} ${personalityResult.user.lastName}`);
+                    }
+
+                    if (personalityResult.user.birthDate) {
+                        try {
+                            const age = calculateAge(personalityResult.user.birthDate);
+                            if (age && !isNaN(age) && age > 0) {
+                                setUserAge(age.toString());
+                            } else {
+                                setUserAge("N/A");
+                            }
+                        } catch (ageError) {
+                            console.error("Error calculating age:", ageError);
                             setUserAge("N/A");
                         }
-                    } catch (ageError) {
-                        console.error("Error calculating age:", ageError);
+                    } else {
                         setUserAge("N/A");
                     }
-                } else {
-                    console.log("No birth date found in user data");
-                    setUserAge("N/A");
+
+                    if (personalityResult.user.profileBackgroundColor) {
+                        setCurrentBgColor(personalityResult.user.profileBackgroundColor);
+                        setOriginalBgColor(personalityResult.user.profileBackgroundColor);
+                        await AsyncStorage.setItem('profileBackgroundColor', personalityResult.user.profileBackgroundColor);
+                    } else {
+                        setOriginalBgColor(currentBgColor);
+                    }
+
+                    // Load selected widgets
+                    const savedWidgets = personalityResult.user.selectedWidgets;
+                    if (savedWidgets && savedWidgets.length > 0) {
+                        setSelectedWidgets(savedWidgets);
+                    } else {
+                        setSelectedWidgets(['travel', 'movies', 'books', 'foodie']);
+                    }
                 }
-                
-                // Load saved background color from database
-                if (personalityResult.user.profileBackgroundColor) {
-                    setCurrentBgColor(personalityResult.user.profileBackgroundColor);
-                    setOriginalBgColor(personalityResult.user.profileBackgroundColor); // Store as original
-                    // Also save to AsyncStorage for faster loading
-                    await AsyncStorage.setItem('profileBackgroundColor', personalityResult.user.profileBackgroundColor);
+
+                // Define available widgets
+                const widgets = [
+                    {
+                        id: 'travel',
+                        name: 'Travel Dreams',
+                        description: 'Places you\'ve been and want to visit',
+                        emoji: '✈️',
+                        color: ['#667eea', '#764ba2']
+                    },
+                    {
+                        id: 'movies',
+                        name: 'Movie Taste',
+                        description: 'Your favorite films and reviews',
+                        emoji: '🎬',
+                        color: ['#ff6b6b', '#feca57']
+                    },
+                    {
+                        id: 'books',
+                        name: 'Book Shelf',
+                        description: 'Reading list and book reviews',
+                        emoji: '📖',
+                        color: ['#8e44ad', '#3498db']
+                    },
+                    {
+                        id: 'foodie',
+                        name: 'Foodie Spots',
+                        description: 'Restaurants and culinary adventures',
+                        emoji: '🍽️',
+                        color: ['#e74c3c', '#f39c12']
+                    },
+                    {
+                        id: 'music',
+                        name: 'Music Vibes',
+                        description: 'Your playlists and favorite artists',
+                        emoji: '🎵',
+                        color: ['#1e3c72', '#2a5298'],
+                        comingSoon: true
+                    },
+                    {
+                        id: 'fitness',
+                        name: 'Fitness Goals',
+                        description: 'Workouts and health achievements',
+                        emoji: '💪',
+                        color: ['#11998e', '#38ef7d'],
+                        comingSoon: true
+                    },
+                    {
+                        id: 'hobbies',
+                        name: 'Hobbies & Skills',
+                        description: 'Creative pursuits and talents',
+                        emoji: '🎨',
+                        color: ['#8360c3', '#2ebf91'],
+                        comingSoon: true
+                    },
+                    {
+                        id: 'goals',
+                        name: 'Life Goals',
+                        description: 'Dreams and aspirations',
+                        emoji: '🎯',
+                        color: ['#fa709a', '#fee140'],
+                        comingSoon: true
+                    }
+                ];
+                setAvailableWidgets(widgets);
+
+                // Generate available banners
+                const banners = generateBannersFromData(personalityQuizData, lifestyleQuizData);
+                setAvailableBanners(banners);
+
+                const savedBanners = personalityResult.user?.selectedProfileBanners;
+                if (savedBanners && savedBanners.length > 0) {
+                    setSelectedBanners(savedBanners);
                 } else {
-                    setOriginalBgColor(currentBgColor); // Store current as original
+                    setSelectedBanners(banners.slice(0, 5));
                 }
+
+                setQuizStatus({
+                    personality: !!personalityQuizData,
+                    lifestyle: !!lifestyleQuizData
+                });
+
+            } catch (error) {
+                console.error('Error loading user data:', error);
+                setUserAge("N/A");
             }
+        };
 
-            setPersonalityData(personalityQuizData);
-            setLifestyleData(lifestyleQuizData);
-            
-            setQuizStatus({
-                personality: !!personalityQuizData,
-                lifestyle: !!lifestyleQuizData
-            });
-
-            // Generate available banners
-            const banners = generateBannersFromData(personalityQuizData, lifestyleQuizData);
-            setAvailableBanners(banners);
-
-            // Set default selected banners (first 5)
-            const savedBanners = personalityResult.user?.selectedProfileBanners;
-            if (savedBanners && savedBanners.length > 0) {
-                setSelectedBanners(savedBanners);
-            } else {
-                setSelectedBanners(banners.slice(0, 5));
-            }
-
-        } catch (error) {
-            console.error('Error loading user data:', error);
-            setUserAge("N/A");
-        }
-    };
-
-    loadUserData();
-}, []);
+        loadUserData();
+    }, []);
 
     const handleColorChange = (color) => {
         // Only change the UI color, don't save to database or AsyncStorage yet
@@ -287,7 +356,7 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
                 setUploading(true);
                 
                 // Upload photo to Firebase
-                const userEmail = "test2@example.com"; // Replace with actual user email
+                const userEmail = currentUser?.email || "test2@example.com";
                 const uploadResult = await uploadProfilePhoto(userEmail, result.assets[0].uri);
                 
                 if (uploadResult.success) {
@@ -306,45 +375,97 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
         }
     };
 
-    const handleSave = async () => {
-    try {
+    const handleWidgetToggle = async (widget) => {
+        if (widget.comingSoon) return; // Don't allow selection of coming soon widgets
+        
         const userEmail = currentUser?.email || "test2@example.com";
         
-        // Save selected banners to database
-        const bannersResult = await storeSelectedBanners(userEmail, selectedBanners);
-        
-        if (bannersResult.success) {
-            console.log("Banners saved successfully");
-        } else {
-            console.error("Failed to save banners:", bannersResult.message);
-        }
-        
-        // Save background color to database if it changed
-        if (currentBgColor !== originalBgColor) {
-            const colorResult = await storeProfileBackgroundColor(userEmail, currentBgColor);
+        if (selectedWidgets.includes(widget.id)) {
+            // Remove widget if already selected
+            setSelectedWidgets(selectedWidgets.filter(id => id !== widget.id));
             
-            if (colorResult.success) {
-                console.log("Background color saved successfully");
-                // Update AsyncStorage after successful database save
-                await AsyncStorage.setItem('profileBackgroundColor', currentBgColor);
-                // Update the original color so it doesn't revert next time
-                setOriginalBgColor(currentBgColor);
-            } else {
-                console.error("Failed to save background color:", colorResult.message);
-                // Optionally show an alert about the failure
-                Alert.alert("Warning", "Profile banners saved, but background color failed to save.");
+            // Note: We don't delete widget data when deselecting - it stays in database
+            // This way when user re-selects the widget, their data is preserved
+            
+        } else if (selectedWidgets.length < 4) {
+            // Add widget if less than 4 selected
+            setSelectedWidgets([...selectedWidgets, widget.id]);
+            
+            // Initialize widget data if it doesn't exist yet
+            try {
+                const initResult = await initializeWidgetData(userEmail, widget.id);
+                if (initResult.success) {
+                    console.log(`Initialized ${widget.id} widget data`);
+                }
+            } catch (error) {
+                console.error(`Error initializing ${widget.id} widget:`, error);
             }
+            
+        } else {
+            // Show alert if trying to select more than 4
+            Alert.alert(
+                "Maximum Widgets Selected",
+                "You can only select 4 widgets. Please deselect one first.",
+                [{ text: "OK" }]
+            );
         }
-        
-    } catch (error) {
-        console.error("Error saving profile data:", error);
-        Alert.alert("Error", "Failed to save some profile changes.");
-    }
+    };
 
-    if (navigation) {
-        navigation.goBack();
-    }
-};
+    const handleSave = async () => {
+        try {
+            const userEmail = currentUser?.email || "test2@example.com";
+            
+            // Save selected banners to database
+            const bannersResult = await storeSelectedBanners(userEmail, selectedBanners);
+            
+            if (bannersResult.success) {
+                console.log("Banners saved successfully");
+            } else {
+                console.error("Failed to save banners:", bannersResult.message);
+            }
+            
+            // Save selected widgets to database
+            const widgetsResult = await storeSelectedWidgets(userEmail, selectedWidgets);
+            
+            if (widgetsResult.success) {
+                console.log("Widgets saved successfully");
+                
+                // Initialize widget data for any newly selected widgets
+                for (const widgetId of selectedWidgets) {
+                    try {
+                        await initializeWidgetData(userEmail, widgetId);
+                    } catch (error) {
+                        console.error(`Error initializing ${widgetId} widget:`, error);
+                    }
+                }
+                
+            } else {
+                console.error("Failed to save widgets:", widgetsResult.message);
+            }
+            
+            // Save background color to database if it changed
+            if (currentBgColor !== originalBgColor) {
+                const colorResult = await storeProfileBackgroundColor(userEmail, currentBgColor);
+                
+                if (colorResult.success) {
+                    console.log("Background color saved successfully");
+                    await AsyncStorage.setItem('profileBackgroundColor', currentBgColor);
+                    setOriginalBgColor(currentBgColor);
+                } else {
+                    console.error("Failed to save background color:", colorResult.message);
+                    Alert.alert("Warning", "Profile banners saved, but background color failed to save.");
+                }
+            }
+            
+        } catch (error) {
+            console.error("Error saving profile data:", error);
+            Alert.alert("Error", "Failed to save some profile changes.");
+        }
+
+        if (navigation) {
+            navigation.goBack();
+        }
+    };
 
     const handleCancel = async () => {
         // Revert background color to original
@@ -365,7 +486,6 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
             navigation.goBack();
         }
     };
-
 
     const renderQuizPrompt = () => {
         if (!quizStatus.personality && !quizStatus.lifestyle) {
@@ -542,6 +662,76 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
                                     </View>
                                 </View>
                             )}
+                        </View>
+                        
+                        {/* Widget Selection */}
+                        <View style={styles.widgetContainer}>
+                            <Text style={styles.widgetTitle}>Choose Profile Widgets (Select 4)</Text>
+                            
+                            <Text style={styles.widgetSubtitle}>
+                                Selected: {selectedWidgets.length}/4
+                            </Text>
+
+                            <View style={styles.widgetGrid}>
+                                {availableWidgets.map((widget) => {
+                                    const isSelected = selectedWidgets.includes(widget.id);
+                                    const isComingSoon = widget.comingSoon;
+                                    
+                                    return (
+                                        <TouchableOpacity
+                                            key={widget.id}
+                                            style={[
+                                                styles.widgetOption,
+                                                isSelected && styles.selectedWidget,
+                                                isComingSoon && styles.comingSoonWidget
+                                            ]}
+                                            onPress={() => handleWidgetToggle(widget)}
+                                            disabled={isComingSoon}
+                                        >
+                                            <LinearGradient
+                                                colors={widget.color}
+                                                style={[
+                                                    styles.widgetGradient,
+                                                    isComingSoon && styles.comingSoonGradient
+                                                ]}
+                                                start={{ x: 0, y: 0 }}
+                                                end={{ x: 1, y: 1 }}
+                                            >
+                                                <View style={styles.widgetContent}>
+                                                    <Text style={[
+                                                        styles.widgetEmoji,
+                                                        isComingSoon && styles.comingSoonText
+                                                    ]}>
+                                                        {widget.emoji}
+                                                    </Text>
+                                                    <Text style={[
+                                                        styles.widgetName,
+                                                        isComingSoon && styles.comingSoonText
+                                                    ]}>
+                                                        {widget.name}
+                                                    </Text>
+                                                    <Text style={[
+                                                        styles.widgetDescription,
+                                                        isComingSoon && styles.comingSoonText
+                                                    ]}>
+                                                        {widget.description}
+                                                    </Text>
+                                                    {isComingSoon && (
+                                                        <Text style={styles.comingSoonLabel}>
+                                                            Coming Soon
+                                                        </Text>
+                                                    )}
+                                                </View>
+                                                {isSelected && !isComingSoon && (
+                                                    <View style={styles.selectedWidgetCheckmark}>
+                                                        <Text style={styles.widgetCheckmarkText}>✓</Text>
+                                                    </View>
+                                                )}
+                                            </LinearGradient>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
                         </View>
                     </ScrollView>
                 </LinearGradient>
@@ -754,5 +944,99 @@ const styles = StyleSheet.create({
     },
     disabledIcon: {
         opacity: 0.5,
+    },
+    widgetContainer: {
+        paddingHorizontal: 20,
+        marginBottom: 30,
+    },
+    widgetTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#333',
+        marginBottom: 10,
+        textAlign: 'center',
+    },
+    widgetSubtitle: {
+        fontSize: 14,
+        color: '#666',
+        marginBottom: 20,
+        textAlign: 'center',
+    },
+    widgetGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 12,
+        justifyContent: 'space-between',
+    },
+    widgetOption: {
+        width: '48%', // 2 widgets per row
+        borderRadius: 15,
+        overflow: 'hidden',
+        marginBottom: 12,
+    },
+    selectedWidget: {
+        borderWidth: 3,
+        borderColor: '#007AFF',
+    },
+    comingSoonWidget: {
+        opacity: 0.6,
+    },
+    widgetGradient: {
+        padding: 16,
+        minHeight: 120,
+        position: 'relative',
+    },
+    comingSoonGradient: {
+        opacity: 0.7,
+    },
+    widgetContent: {
+        alignItems: 'center',
+        flex: 1,
+    },
+    widgetEmoji: {
+        fontSize: 24,
+        marginBottom: 8,
+    },
+    widgetName: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: 'white',
+        textAlign: 'center',
+        marginBottom: 4,
+    },
+    widgetDescription: {
+        fontSize: 11,
+        color: 'rgba(255, 255, 255, 0.8)',
+        textAlign: 'center',
+        lineHeight: 14,
+    },
+    comingSoonText: {
+        opacity: 0.8,
+    },
+    comingSoonLabel: {
+        fontSize: 10,
+        color: 'white',
+        fontWeight: 'bold',
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 8,
+        marginTop: 4,
+    },
+    selectedWidgetCheckmark: {
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        backgroundColor: 'rgba(255,255,255,0.9)',
+        borderRadius: 12,
+        width: 24,
+        height: 24,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    widgetCheckmarkText: {
+        color: '#007AFF',
+        fontSize: 16,
+        fontWeight: 'bold',
     },
 });
