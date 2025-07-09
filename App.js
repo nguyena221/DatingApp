@@ -21,16 +21,6 @@ import MessagesScreen from './screens/MessagesScreen'
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-/* // Placeholder screen for Messages
-function MessagesScreen() {
-  return (
-    <View style={styles.placeholderContainer}>
-      <Text style={styles.placeholderText}>💬 Messages Screen</Text>
-      <Text style={styles.placeholderSubtext}>Coming Soon!</Text>
-    </View>
-  );
-} */
-
 // Tab Navigator Component
 function TabNavigator() {
   const insets = useSafeAreaInsets();

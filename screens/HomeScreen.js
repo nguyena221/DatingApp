@@ -7,6 +7,7 @@ import {
   SafeAreaView,
   StatusBar,
   Dimensions,
+  ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -21,28 +22,27 @@ export default function HomeScreen() {
   const { currentUser } = useUser();
   const [quizStatus, setQuizStatus] = useState({
     personality: false,
-    lifestyle: false
+    lifestyle: false,
   });
 
-  // Check quiz completion status when screen focuses
   useFocusEffect(
     React.useCallback(() => {
       const checkQuizStatus = async () => {
         try {
           const userEmail = currentUser?.email || "test2@example.com";
           const result = await getUserWithPersonality(userEmail);
-          
+
           if (result.success && result.user) {
             setQuizStatus({
               personality: !!result.user.personalityData,
-              lifestyle: !!result.user.personalityLifestyleData
+              lifestyle: !!result.user.personalityLifestyleData,
             });
           }
         } catch (error) {
           console.error('Error checking quiz status:', error);
         }
       };
-      
+
       checkQuizStatus();
     }, [currentUser])
   );
@@ -59,87 +59,89 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <StatusBar backgroundColor="#f8f9fa" barStyle="dark-content" />
       <SafeAreaView style={styles.safeArea}>
-        {/* Logout Button */}
-        <LogoutButton />
-        
-        <View style={styles.header}>
-          <Text style={styles.title}>Discover Yourself</Text>
-          <Text style={styles.subtitle}>
-            Take our fun quizzes to unlock your personality and lifestyle insights!
-          </Text>
-        </View>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.header}>
+            <Text style={styles.title}>Discover Yourself</Text>
+            <Text style={styles.subtitle}>
+              Take our fun quizzes to unlock your personality and lifestyle insights!
+            </Text>
+          </View>
 
-        <View style={styles.quizzesContainer}>
-          {/* Personality Quiz Card */}
-          <TouchableOpacity
-            style={styles.quizCard}
-            onPress={handlePersonalityQuiz}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={['#667eea', '#764ba2']}
-              style={styles.quizGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+          <View style={styles.quizzesContainer}>
+            {/* Personality Quiz Card */}
+            <TouchableOpacity
+              style={styles.quizCard}
+              onPress={handlePersonalityQuiz}
+              activeOpacity={0.8}
             >
-              <View style={styles.quizContent}>
-                <Text style={styles.quizEmoji}>🧠</Text>
-                <Text style={styles.quizTitle}>Personality Quiz</Text>
-                <Text style={styles.quizDescription}>
-                  Discover your unique personality type with our comprehensive MBTI-style assessment
-                </Text>
-                <View style={styles.quizDetails}>
-                  <Text style={styles.quizDetailText}>• 24 Questions</Text>
-                  <Text style={styles.quizDetailText}>• 5-7 Minutes</Text>
-                  <Text style={styles.quizDetailText}>• MBTI-Based</Text>
-                </View>
-                <View style={styles.startButton}>
-                  <Text style={styles.startButtonText}>
-                    {quizStatus.personality ? 'Retake Quiz →' : 'Start Quiz →'}
+              <LinearGradient
+                colors={['#667eea', '#764ba2']}
+                style={styles.quizGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <View style={styles.quizContent}>
+                  <Text style={styles.quizEmoji}>🧠</Text>
+                  <Text style={styles.quizTitle}>Personality Quiz</Text>
+                  <Text style={styles.quizDescription}>
+                    Discover your unique personality type with our comprehensive MBTI-style assessment
                   </Text>
+                  <View style={styles.quizDetails}>
+                    <Text style={styles.quizDetailText}>• 24 Questions</Text>
+                    <Text style={styles.quizDetailText}>• 5-7 Minutes</Text>
+                    <Text style={styles.quizDetailText}>• MBTI-Based</Text>
+                  </View>
+                  <View style={styles.startButton}>
+                    <Text style={styles.startButtonText}>
+                      {quizStatus.personality ? 'Retake Quiz →' : 'Start Quiz →'}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
+              </LinearGradient>
+            </TouchableOpacity>
 
-          {/* Lifestyle Quiz Card */}
-          <TouchableOpacity
-            style={styles.quizCard}
-            onPress={handleLifestyleQuiz}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={['#ff9a56', '#ffcd3c']}
-              style={styles.quizGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+            {/* Lifestyle Quiz Card */}
+            <TouchableOpacity
+              style={styles.quizCard}
+              onPress={handleLifestyleQuiz}
+              activeOpacity={0.8}
             >
-              <View style={styles.quizContent}>
-                <Text style={styles.quizEmoji}>🌟</Text>
-                <Text style={styles.quizTitle}>Lifestyle Quiz</Text>
-                <Text style={styles.quizDescription}>
-                  Explore your preferences and lifestyle choices with our fun, quirky questions
-                </Text>
-                <View style={styles.quizDetails}>
-                  <Text style={styles.quizDetailText}>• 20 Questions</Text>
-                  <Text style={styles.quizDetailText}>• 3-5 Minutes</Text>
-                  <Text style={styles.quizDetailText}>• Fun & Quirky</Text>
-                </View>
-                <View style={styles.startButton}>
-                  <Text style={styles.startButtonText}>
-                    {quizStatus.lifestyle ? 'Retake Quiz →' : 'Start Quiz →'}
+              <LinearGradient
+                colors={['#ff9a56', '#ffcd3c']}
+                style={styles.quizGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <View style={styles.quizContent}>
+                  <Text style={styles.quizEmoji}>🌟</Text>
+                  <Text style={styles.quizTitle}>Lifestyle Quiz</Text>
+                  <Text style={styles.quizDescription}>
+                    Explore your preferences and lifestyle choices with our fun, quirky questions
                   </Text>
+                  <View style={styles.quizDetails}>
+                    <Text style={styles.quizDetailText}>• 20 Questions</Text>
+                    <Text style={styles.quizDetailText}>• 3-5 Minutes</Text>
+                    <Text style={styles.quizDetailText}>• Fun & Quirky</Text>
+                  </View>
+                  <View style={styles.startButton}>
+                    <Text style={styles.startButtonText}>
+                      {quizStatus.lifestyle ? 'Retake Quiz →' : 'Start Quiz →'}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            🎯 Complete both quizzes to unlock personalized profile banners!
-          </Text>
-        </View>
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>
+              🎯 Complete both quizzes to unlock personalized profile banners!
+            </Text>
+          </View>
+        </ScrollView>
       </SafeAreaView>
     </View>
   );
@@ -153,10 +155,13 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
+  scrollContent: {
+    paddingBottom: 0,
+  },
   header: {
     paddingHorizontal: 30,
-    paddingVertical: 30, // Reduced from 40
-    paddingTop: 80, // Add top padding to account for logout button
+    paddingVertical: 50,
+    paddingTop: 10,
     alignItems: 'center',
   },
   title: {
@@ -171,14 +176,12 @@ const styles = StyleSheet.create({
     color: '#7f8c8d',
     textAlign: 'center',
     lineHeight: 22,
+    paddingBottom: 10
   },
   quizzesContainer: {
-    flex: 1,
     paddingHorizontal: 20,
     gap: 16,
-    justifyContent: 'center',
-    marginTop: -40, // Pull up to account for extra header padding
-    paddingBottom: 100, // Add bottom padding for tab navigator
+    marginTop: -40,
   },
   quizCard: {
     borderRadius: 20,
@@ -194,32 +197,32 @@ const styles = StyleSheet.create({
   quizGradient: {
     borderRadius: 20,
     padding: 20,
-    minHeight: 160, // Reduced from 200
+    minHeight: 160,
   },
   quizContent: {
     alignItems: 'center',
   },
   quizEmoji: {
-    fontSize: 40, // Reduced from 48
-    marginBottom: 12, // Reduced from 16
+    fontSize: 40,
+    marginBottom: 12,
   },
   quizTitle: {
-    fontSize: 22, // Reduced from 24
+    fontSize: 22,
     fontWeight: 'bold',
     color: 'white',
-    marginBottom: 10, // Reduced from 12
+    marginBottom: 10,
     textAlign: 'center',
   },
   quizDescription: {
-    fontSize: 15, // Reduced from 16
+    fontSize: 15,
     color: 'rgba(255, 255, 255, 0.9)',
     textAlign: 'center',
-    lineHeight: 20, // Reduced from 22
-    marginBottom: 16, // Reduced from 20
+    lineHeight: 20,
+    marginBottom: 16,
   },
   quizDetails: {
     alignItems: 'center',
-    marginBottom: 18, // Reduced from 24
+    marginBottom: 18,
   },
   quizDetailText: {
     fontSize: 14,
