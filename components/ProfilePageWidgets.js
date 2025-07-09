@@ -10,6 +10,7 @@ import FavoriteMoviesWidget from '../widgets/FavoriteMoviesWidget';
 import FavoriteBooksWidget from '../widgets/FavoriteBooksWidget';
 import FoodieSpotsWidget from '../widgets/FoodieSpotsWidget';
 import { useNavigation } from '@react-navigation/native';
+import TVShowsWidget from '../widgets/TVShowsWidget';
 
 export default function ProfilePageWidgets() {
     const [bgColor, setBgColor] = useState('#e3f2fd');
@@ -23,6 +24,7 @@ export default function ProfilePageWidgets() {
         movies: FavoriteMoviesWidget,
         books: FavoriteBooksWidget,
         foodie: FoodieSpotsWidget,
+        tvshows: TVShowsWidget,
         // Future widgets will be added here
         music: () => <ComingSoonWidget type="Music Vibes" emoji="🎵" />,
         fitness: () => <ComingSoonWidget type="Fitness Goals" emoji="💪" />,

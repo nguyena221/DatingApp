@@ -23,8 +23,8 @@ export default function ProfilePageStart({ scrollY }) {
   const [bgColor, setBgColor] = useState("#e3f2fd");
   const [photoUrl, setPhotoUrl] = useState("");
   const [selectedBanners, setSelectedBanners] = useState([]);
-  const [userName, setUserName] = useState("Sarah Johnson");
-  const [userAge, setUserAge] = useState("24");
+  const [userName, setUserName] = useState("Loading Name...");
+  const [userAge, setUserAge] = useState("Loading...");
   const navigation = useNavigation();
   const { currentUser } = useUser();
 
@@ -65,8 +65,17 @@ export default function ProfilePageStart({ scrollY }) {
   useFocusEffect(
     React.useCallback(() => {
       const loadUserData = async () => {
-        try {
-          const userEmail = currentUser?.email || "test2@example.com";
+       try {
+        console.log("🔍 DEBUG: currentUser from context:", currentUser);
+        console.log("🔍 DEBUG: currentUser?.email:", currentUser?.email);
+        
+        const userEmail = currentUser?.email;
+        if (!userEmail) {
+          console.log("❌ No user logged in");
+          return;
+        }
+        
+        console.log("✅ Loading data for user:", userEmail);
           const result = await getUserWithPersonality(userEmail);
 
           if (result.success && result.user) {
@@ -420,6 +429,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    bottom: 25
   },
   noQuizzesEmoji: {
     fontSize: 48,

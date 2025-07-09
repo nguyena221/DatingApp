@@ -222,7 +222,7 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
                     if (savedWidgets && savedWidgets.length > 0) {
                         setSelectedWidgets(savedWidgets);
                     } else {
-                        setSelectedWidgets(['travel', 'movies', 'books', 'foodie']);
+                        setSelectedWidgets(['travel', 'movies', 'books', 'foodie', 'tvshows']);
                     }
                 }
 
@@ -257,12 +257,11 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
                         color: ['#e74c3c', '#f39c12']
                     },
                     {
-                        id: 'music',
-                        name: 'Music Vibes',
-                        description: 'Your playlists and favorite artists',
-                        emoji: '🎵',
-                        color: ['#1e3c72', '#2a5298'],
-                        comingSoon: true
+                        id: 'tvshows',
+                        name: 'TV Shows',
+                        description: 'Shows you\'ve watched and want to watch',
+                        emoji: '📺',
+                        color: ['#2c3e50', '#3498db']
                     },
                     {
                         id: 'fitness',

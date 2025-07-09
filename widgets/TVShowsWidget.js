@@ -23,42 +23,44 @@ import {
 
 const { width, height } = Dimensions.get('window');
 
-const FoodieSpotsWidget = ({ navigation }) => {
+const TVShowsWidget = ({ navigation }) => {
     const [isExpanded, setIsExpanded] = useState(false);
-    const [foodieSpots, setFoodieSpots] = useState([]);
+    const [tvShows, setTVShows] = useState([]);
     const [loading, setLoading] = useState(true);
     const { user } = useUser();
 
-    // Load spots from database when component mounts or regains focus
+    // Load TV shows from database when component mounts or regains focus
     useFocusEffect(
         useCallback(() => {
-            loadSpotsFromDatabase();
+            loadShowsFromDatabase();
         }, [])
     );
 
-    const loadSpotsFromDatabase = async () => {
+    const loadShowsFromDatabase = async () => {
         try {
             setLoading(true);
             const userEmail = user?.email || "test2@example.com";
-            const result = await getUserWidgetData(userEmail, 'foodie');
+            const result = await getUserWidgetData(userEmail, 'tvshows');
             
             if (result.success && result.data) {
-                setFoodieSpots(result.data.spots || []);
+                setTVShows(result.data.shows || []);
             } else {
-                console.log("No foodie spots data found, starting with empty array");
-                setFoodieSpots([]);
+                console.log("No TV shows data found, starting with empty array");
+                setTVShows([]);
             }
         } catch (error) {
-            console.error("Error loading foodie spots:", error);
-            setFoodieSpots([]);
+            console.error("Error loading TV shows:", error);
+            setTVShows([]);
         } finally {
             setLoading(false);
         }
     };
 
-    const averageRating = foodieSpots.length > 0 ? (foodieSpots.reduce((sum, spot) => sum + spot.rating, 0) / foodieSpots.length).toFixed(1) : 0;
-    const uniqueCuisines = [...new Set(foodieSpots.map(s => s.cuisine))];
-    
+    const watchedShows = tvShows.filter(s => s.status === 'watched');
+    const averageRating = watchedShows.length > 0 ? (watchedShows.reduce((sum, show) => sum + show.rating, 0) / watchedShows.length).toFixed(1) : 0;
+    const favoriteGenres = [...new Set(tvShows.map(s => s.genre))];
+    const currentlyWatching = tvShows.filter(s => s.status === 'watching');
+
     const openExpanded = () => {
         setIsExpanded(true);
     };
@@ -67,10 +69,10 @@ const FoodieSpotsWidget = ({ navigation }) => {
         setIsExpanded(false);
     };
 
-    // Navigate to AddFoodieSpot screen
-    const handleAddSpot = () => {
-        console.log('🍽️ Navigating to AddFoodieSpot screen');
-        console.log('🍽️ Navigation object:', navigation);
+    // Navigate to AddTVShow screen
+    const handleAddShow = () => {
+        console.log('📺 Navigating to AddTVShow screen');
+        console.log('📺 Navigation object:', navigation);
         
         // Close the expanded modal first
         setIsExpanded(false);
@@ -78,7 +80,7 @@ const FoodieSpotsWidget = ({ navigation }) => {
         // Then navigate after a small delay to ensure modal is closed
         setTimeout(() => {
             if (navigation && navigation.navigate) {
-                navigation.navigate('AddFoodieSpot');
+                navigation.navigate('AddTVShow');
             } else {
                 console.error('❌ Navigation not available');
                 Alert.alert('Error', 'Navigation not available. Please try again.');
@@ -86,12 +88,27 @@ const FoodieSpotsWidget = ({ navigation }) => {
         }, 300);
     };
 
-    const handleRemoveSpot = async (spotId) => {
-        console.log('🗑️ handleRemoveSpot called with spotId:', spotId);
+    const openStreamingLink = async (url) => {
+        if (!url) return;
+        
+        try {
+            const supported = await Linking.canOpenURL(url);
+            if (supported) {
+                await Linking.openURL(url);
+            } else {
+                Alert.alert('Error', 'Unable to open streaming link');
+            }
+        } catch (error) {
+            Alert.alert('Error', 'Unable to open streaming link');
+        }
+    };
+
+    const handleRemoveShow = async (showId) => {
+        console.log('🗑️ handleRemoveShow called with showId:', showId);
         
         Alert.alert(
-            'Remove Spot',
-            'Are you sure you want to remove this spot from your collection?',
+            'Remove Show',
+            'Are you sure you want to remove this show from your collection?',
             [
                 { text: 'Cancel', style: 'cancel' },
                 { 
@@ -101,26 +118,26 @@ const FoodieSpotsWidget = ({ navigation }) => {
                         try {
                             console.log('🗑️ User confirmed deletion');
                             const userEmail = user?.email || "test2@example.com";
-                            console.log('🗑️ Removing spot from database for user:', userEmail);
+                            console.log('🗑️ Removing show from database for user:', userEmail);
                             
-                            const result = await removeWidgetItem(userEmail, 'foodie', spotId);
+                            const result = await removeWidgetItem(userEmail, 'tvshows', showId);
                             console.log('🗑️ Database result:', result);
                             
                             if (result.success) {
-                                console.log('✅ Spot removed from database, updating local state');
-                                setFoodieSpots(prevSpots => {
-                                    const updatedSpots = prevSpots.filter(spot => spot.id !== spotId);
-                                    console.log('✅ Updated spots array:', updatedSpots);
-                                    return updatedSpots;
+                                console.log('✅ Show removed from database, updating local state');
+                                setTVShows(prevShows => {
+                                    const updatedShows = prevShows.filter(show => show.id !== showId);
+                                    console.log('✅ Updated shows array:', updatedShows);
+                                    return updatedShows;
                                 });
-                                Alert.alert('Success', 'Spot removed successfully!');
+                                Alert.alert('Success', 'Show removed successfully!');
                             } else {
                                 console.log('❌ Database removal failed:', result.message);
-                                Alert.alert('Error', result.message || 'Failed to remove spot');
+                                Alert.alert('Error', result.message || 'Failed to remove show');
                             }
                         } catch (error) {
-                            console.error("❌ Error removing spot:", error);
-                            Alert.alert('Error', 'Failed to remove spot');
+                            console.error("❌ Error removing show:", error);
+                            Alert.alert('Error', 'Failed to remove show');
                         }
                     }
                 }
@@ -128,15 +145,15 @@ const FoodieSpotsWidget = ({ navigation }) => {
         );
     };
 
-    const handleUpdateSpotRating = async (spotId, newRating) => {
+    const handleUpdateShowRating = async (showId, newRating) => {
         try {
             const userEmail = user?.email || "test2@example.com";
-            const result = await updateWidgetItem(userEmail, 'foodie', spotId, { rating: newRating });
+            const result = await updateWidgetItem(userEmail, 'tvshows', showId, { rating: newRating });
             
             if (result.success) {
-                setFoodieSpots(prevSpots => 
-                    prevSpots.map(spot => 
-                        spot.id === spotId ? { ...spot, rating: newRating } : spot
+                setTVShows(prevShows => 
+                    prevShows.map(show => 
+                        show.id === showId ? { ...show, rating: newRating } : show
                     )
                 );
             } else {
@@ -148,12 +165,12 @@ const FoodieSpotsWidget = ({ navigation }) => {
         }
     };
 
-    const renderStars = (rating, size = 12, interactive = false, spotId = null) => {
+    const renderStars = (rating, size = 12, interactive = false, showId = null) => {
         return Array.from({ length: 5 }, (_, i) => (
             <TouchableOpacity
                 key={i}
                 disabled={!interactive}
-                onPress={interactive ? () => handleUpdateSpotRating(spotId, i + 1) : undefined}
+                onPress={interactive ? () => handleUpdateShowRating(showId, i + 1) : undefined}
                 activeOpacity={interactive ? 0.7 : 1}
             >
                 <Text style={[styles.star, { fontSize: size }]}>
@@ -163,13 +180,21 @@ const FoodieSpotsWidget = ({ navigation }) => {
         ));
     };
 
-    const getPriceColor = (priceRange) => {
-        switch (priceRange) {
-            case '$': return '#4CAF50';
-            case '$$': return '#FF9800';
-            case '$$$': return '#FF5722';
-            case '$$$$': return '#9C27B0';
+    const getStatusColor = (status) => {
+        switch (status) {
+            case 'watched': return '#4CAF50';
+            case 'watching': return '#FF9800';
+            case 'want-to-watch': return '#2196F3';
             default: return '#666';
+        }
+    };
+
+    const getStatusText = (status) => {
+        switch (status) {
+            case 'watched': return 'Watched';
+            case 'watching': return 'Watching';
+            case 'want-to-watch': return 'Want to Watch';
+            default: return '';
         }
     };
 
@@ -177,38 +202,41 @@ const FoodieSpotsWidget = ({ navigation }) => {
     const CompactWidget = () => (
         <TouchableOpacity onPress={openExpanded} style={styles.widgetContainer} activeOpacity={0.8}>
             <LinearGradient
-                colors={['#e74c3c', '#f39c12']}
+                colors={['#2c3e50', '#3498db']}
                 style={styles.container}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
             >
                 <View style={styles.header}>
-                    <Text style={styles.title}>🍽️ Foodie Spots</Text>
+                    <Text style={styles.title}>📺 TV Shows</Text>
                     <View style={styles.statsRow}>
-                        <Text style={styles.stat}>{foodieSpots.length} spots</Text>
+                        <Text style={styles.stat}>{watchedShows.length} watched</Text>
                         <Text style={styles.stat}>★ {averageRating} avg</Text>
                     </View>
                 </View>
 
                 {loading ? (
                     <View style={styles.loadingContainer}>
-                        <Text style={styles.loadingText}>Loading spots...</Text>
+                        <Text style={styles.loadingText}>Loading shows...</Text>
                     </View>
                 ) : (
-                    <ScrollView style={styles.spotsList} showsVerticalScrollIndicator={false}>
-                        {foodieSpots.slice(0, 3).map((spot) => (
-                            <View key={spot.id} style={styles.spotItem}>
-                                <View style={styles.spotLeft}>
-                                    <Text style={styles.spotEmoji}>{spot.emoji}</Text>
-                                    <View style={styles.spotInfo}>
-                                        <Text style={styles.spotName} numberOfLines={1}>{spot.title}</Text>
-                                        <Text style={styles.spotCuisine}>{spot.cuisine} • {spot.priceRange}</Text>
+                    <ScrollView style={styles.showsList} showsVerticalScrollIndicator={false}>
+                        {tvShows.slice(0, 3).map((show) => (
+                            <View key={show.id} style={styles.showItem}>
+                                <View style={styles.showLeft}>
+                                    <Text style={styles.showEmoji}>{show.emoji}</Text>
+                                    <View style={styles.showInfo}>
+                                        <Text style={styles.showTitle} numberOfLines={1}>{show.title}</Text>
+                                        <Text style={styles.showMeta}>S{show.seasons} • {show.year}</Text>
                                     </View>
                                 </View>
                                 <View style={styles.compactRightSection}>
-                                    <View style={styles.ratingContainer}>
-                                        {renderStars(spot.rating, 10)}
-                                    </View>
+                                    <View style={[styles.statusDot, { backgroundColor: getStatusColor(show.status) }]} />
+                                    {show.status === 'watched' && (
+                                        <View style={styles.ratingContainer}>
+                                            {renderStars(show.rating, 10)}
+                                        </View>
+                                    )}
                                 </View>
                             </View>
                         ))}
@@ -216,7 +244,7 @@ const FoodieSpotsWidget = ({ navigation }) => {
                 )}
 
                 <View style={styles.expandHint}>
-                    <Text style={styles.expandHintText}>Tap to see all {foodieSpots.length} spots</Text>
+                    <Text style={styles.expandHintText}>Tap to see all {tvShows.length} shows</Text>
                 </View>
             </LinearGradient>
         </TouchableOpacity>
@@ -230,9 +258,9 @@ const FoodieSpotsWidget = ({ navigation }) => {
             presentationStyle="fullScreen"
             onRequestClose={closeExpanded}
         >
-            <StatusBar barStyle="light-content" backgroundColor="#e74c3c" />
+            <StatusBar barStyle="light-content" backgroundColor="#2c3e50" />
             <LinearGradient
-                colors={['#e74c3c', '#f39c12']}
+                colors={['#2c3e50', '#3498db']}
                 style={styles.expandedContainer}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
@@ -243,84 +271,89 @@ const FoodieSpotsWidget = ({ navigation }) => {
                         <TouchableOpacity onPress={closeExpanded} style={styles.closeButton} activeOpacity={0.7}>
                             <Text style={styles.closeButtonText}>✕</Text>
                         </TouchableOpacity>
-                        <Text style={styles.expandedTitle}>🍽️ My Foodie Journey</Text>
+                        <Text style={styles.expandedTitle}>📺 My TV Collection</Text>
                         <View style={styles.placeholder} />
                     </View>
 
                     {/* Stats */}
                     <View style={styles.expandedStatsContainer}>
                         <View style={styles.expandedStatBox}>
-                            <Text style={styles.expandedStatNumber}>{foodieSpots.length}</Text>
-                            <Text style={styles.expandedStatLabel}>Total Spots</Text>
+                            <Text style={styles.expandedStatNumber}>{watchedShows.length}</Text>
+                            <Text style={styles.expandedStatLabel}>Watched</Text>
                         </View>
                         <View style={styles.expandedStatBox}>
                             <Text style={styles.expandedStatNumber}>★ {averageRating}</Text>
                             <Text style={styles.expandedStatLabel}>Avg Rating</Text>
                         </View>
                         <View style={styles.expandedStatBox}>
-                            <Text style={styles.expandedStatNumber}>{uniqueCuisines.length}</Text>
-                            <Text style={styles.expandedStatLabel}>Cuisines</Text>
+                            <Text style={styles.expandedStatNumber}>{currentlyWatching.length}</Text>
+                            <Text style={styles.expandedStatLabel}>Watching</Text>
                         </View>
                     </View>
 
-                    {/* Cuisine Tags */}
-                    {uniqueCuisines.length > 0 && (
-                        <View style={styles.cuisineContainer}>
-                            <Text style={styles.cuisineTitle}>Cuisines Explored:</Text>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                <View style={styles.cuisineTags}>
-                                    {uniqueCuisines.map((cuisine, index) => (
-                                        <View key={index} style={styles.cuisineTag}>
-                                            <Text style={styles.cuisineText}>{cuisine}</Text>
-                                        </View>
-                                    ))}
-                                </View>
-                            </ScrollView>
+                    {/* Genre Tags */}
+                    {favoriteGenres.length > 0 && (
+                        <View style={styles.genreContainer}>
+                            <Text style={styles.genreTitle}>Favorite Genres:</Text>
+                            <View style={styles.genreTags}>
+                                {favoriteGenres.map((genre, index) => (
+                                    <View key={index} style={styles.genreTag}>
+                                        <Text style={styles.genreText}>{genre}</Text>
+                                    </View>
+                                ))}
+                            </View>
                         </View>
                     )}
 
-                    {/* Spots List */}
+                    {/* Shows List */}
                     <ScrollView 
-                        style={styles.expandedSpotsList} 
+                        style={styles.expandedShowsList} 
                         showsVerticalScrollIndicator={false}
                         keyboardShouldPersistTaps="handled"
                     >
-                        {foodieSpots.length === 0 ? (
+                        {tvShows.length === 0 ? (
                             <View style={styles.emptyState}>
-                                <Text style={styles.emptyStateText}>No spots in your collection yet!</Text>
-                                <Text style={styles.emptyStateSubtext}>Add your first foodie spot to get started</Text>
+                                <Text style={styles.emptyStateText}>No shows in your collection yet!</Text>
+                                <Text style={styles.emptyStateSubtext}>Add your first TV show to get started</Text>
                             </View>
                         ) : (
-                            foodieSpots.map((spot) => (
-                                <View key={spot.id} style={styles.swipeableContainer}>
+                            tvShows.map((show) => (
+                                <View key={show.id} style={styles.swipeableContainer}>
                                     <TouchableOpacity 
-                                        style={styles.expandedSpotItem}
+                                        style={styles.expandedShowItem}
+                                        onPress={() => openStreamingLink(show.streamingUrl)}
                                         activeOpacity={0.7}
                                     >
-                                        <View style={styles.expandedSpotHeader}>
-                                            <View style={styles.spotLeft}>
-                                                <Text style={styles.expandedSpotEmoji}>{spot.emoji}</Text>
-                                                <View style={styles.spotInfo}>
-                                                    <Text style={styles.expandedSpotName}>{spot.title}</Text>
-                                                    <Text style={styles.expandedSpotLocation}>{spot.location}</Text>
-                                                    <View style={styles.expandedSpotMeta}>
-                                                        <Text style={styles.expandedSpotCuisine}>{spot.cuisine}</Text>
-                                                        <View style={[styles.priceTag, { backgroundColor: getPriceColor(spot.priceRange) }]}>
-                                                            <Text style={styles.priceText}>{spot.priceRange}</Text>
+                                        <View style={styles.expandedShowHeader}>
+                                            <View style={styles.showLeft}>
+                                                <Text style={styles.expandedShowEmoji}>{show.emoji}</Text>
+                                                <View style={styles.showInfo}>
+                                                    <Text style={styles.expandedShowTitle}>{show.title}</Text>
+                                                    <Text style={styles.expandedShowMeta}>{show.year} • {show.seasons} Season{show.seasons !== 1 ? 's' : ''} • {show.genre}</Text>
+                                                    <View style={styles.expandedShowStatusRow}>
+                                                        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(show.status) }]}>
+                                                            <Text style={styles.statusBadgeText}>{getStatusText(show.status)}</Text>
                                                         </View>
-                                                        <View style={styles.expandedRatingContainer}>
-                                                            {renderStars(spot.rating, 14, true, spot.id)}
-                                                        </View>
+                                                        {show.status === 'watched' && (
+                                                            <View style={styles.expandedRatingContainer}>
+                                                                {renderStars(show.rating, 14, true, show.id)}
+                                                            </View>
+                                                        )}
                                                     </View>
                                                 </View>
                                             </View>
-                                            <View style={styles.spotActions}>
+                                            <View style={styles.showActions}>
+                                                {show.streamingUrl && (
+                                                    <View style={styles.streamingIcon}>
+                                                        <Text style={styles.streamingText}>📱</Text>
+                                                    </View>
+                                                )}
                                                 {/* Delete Button */}
                                                 <TouchableOpacity
                                                     style={styles.deleteIconButton}
                                                     onPress={() => {
-                                                        console.log('🗑️ Delete button pressed for spot:', spot.id, spot.title);
-                                                        handleRemoveSpot(spot.id);
+                                                        console.log('🗑️ Delete button pressed for show:', show.id, show.title);
+                                                        handleRemoveShow(show.id);
                                                     }}
                                                     activeOpacity={0.7}
                                                 >
@@ -328,22 +361,8 @@ const FoodieSpotsWidget = ({ navigation }) => {
                                                 </TouchableOpacity>
                                             </View>
                                         </View>
-                                        
-                                        {spot.signature && (
-                                            <View style={styles.signatureContainer}>
-                                                <Text style={styles.signatureLabel}>Must-try: </Text>
-                                                <Text style={styles.signatureText}>{spot.signature}</Text>
-                                            </View>
-                                        )}
-                                        
-                                        {spot.review && (
-                                            <Text style={styles.spotReview}>"{spot.review}"</Text>
-                                        )}
-                                        
-                                        {spot.visited && (
-                                            <View style={styles.visitedContainer}>
-                                                <Text style={styles.visitedText}>Visited: {new Date(spot.visited).toLocaleDateString()}</Text>
-                                            </View>
+                                        {show.review && (
+                                            <Text style={styles.showReview}>"{show.review}"</Text>
                                         )}
                                     </TouchableOpacity>
                                 </View>
@@ -354,10 +373,10 @@ const FoodieSpotsWidget = ({ navigation }) => {
                     {/* Add Button */}
                     <TouchableOpacity 
                         style={styles.expandedAddButton}
-                        onPress={handleAddSpot}
+                        onPress={handleAddShow}
                         activeOpacity={0.8}
                     >
-                        <Text style={styles.expandedAddButtonText}>+ Add New Spot</Text>
+                        <Text style={styles.expandedAddButtonText}>+ Add New Show</Text>
                     </TouchableOpacity>
                 </SafeAreaView>
             </LinearGradient>
@@ -406,10 +425,10 @@ const styles = StyleSheet.create({
         color: 'rgba(255, 255, 255, 0.8)',
         fontWeight: '500',
     },
-    spotsList: {
+    showsList: {
         flex: 1,
     },
-    spotItem: {
+    showItem: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -418,30 +437,36 @@ const styles = StyleSheet.create({
         padding: 8,
         marginBottom: 6,
     },
-    spotLeft: {
+    showLeft: {
         flexDirection: 'row',
         alignItems: 'center',
         flex: 1,
     },
-    spotEmoji: {
+    showEmoji: {
         fontSize: 16,
         marginRight: 8,
     },
-    spotInfo: {
+    showInfo: {
         flex: 1,
     },
-    spotName: {
+    showTitle: {
         fontSize: 12,
         fontWeight: '600',
         color: 'white',
         marginBottom: 2,
     },
-    spotCuisine: {
+    showMeta: {
         fontSize: 10,
         color: 'rgba(255, 255, 255, 0.7)',
     },
     compactRightSection: {
         alignItems: 'center',
+    },
+    statusDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        marginBottom: 4,
     },
     ratingContainer: {
         flexDirection: 'row',
@@ -533,90 +558,92 @@ const styles = StyleSheet.create({
         color: 'rgba(255, 255, 255, 0.8)',
         fontWeight: '500',
     },
-    cuisineContainer: {
+    genreContainer: {
         marginBottom: 20,
     },
-    cuisineTitle: {
+    genreTitle: {
         fontSize: 16,
         fontWeight: '600',
         color: 'white',
         marginBottom: 8,
     },
-    cuisineTags: {
+    genreTags: {
         flexDirection: 'row',
+        flexWrap: 'wrap',
         gap: 8,
     },
-    cuisineTag: {
+    genreTag: {
         backgroundColor: 'rgba(255, 255, 255, 0.2)',
         borderRadius: 12,
         paddingHorizontal: 12,
         paddingVertical: 6,
     },
-    cuisineText: {
+    genreText: {
         color: 'white',
         fontSize: 12,
         fontWeight: '500',
     },
-    expandedSpotsList: {
+    expandedShowsList: {
         flex: 1,
     },
     swipeableContainer: {
         marginBottom: 12,
     },
-    expandedSpotItem: {
+    expandedShowItem: {
         backgroundColor: 'rgba(255, 255, 255, 0.15)',
         borderRadius: 12,
         padding: 16,
     },
-    expandedSpotHeader: {
+    expandedShowHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
         marginBottom: 8,
     },
-    spotActions: {
+    showActions: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
     },
-    expandedSpotEmoji: {
+    expandedShowEmoji: {
         fontSize: 24,
         marginRight: 12,
     },
-    expandedSpotName: {
+    expandedShowTitle: {
         fontSize: 16,
         fontWeight: '600',
         color: 'white',
         marginBottom: 4,
     },
-    expandedSpotLocation: {
+    expandedShowMeta: {
         fontSize: 13,
         color: 'rgba(255, 255, 255, 0.7)',
         marginBottom: 8,
     },
-    expandedSpotMeta: {
+    expandedShowStatusRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
-        flexWrap: 'wrap',
+        gap: 12,
     },
-    expandedSpotCuisine: {
-        fontSize: 12,
-        color: 'rgba(255, 255, 255, 0.8)',
-        fontWeight: '500',
-    },
-    priceTag: {
+    statusBadge: {
         borderRadius: 8,
-        paddingHorizontal: 6,
-        paddingVertical: 2,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
     },
-    priceText: {
+    statusBadgeText: {
         color: 'white',
         fontSize: 11,
         fontWeight: '600',
     },
     expandedRatingContainer: {
         flexDirection: 'row',
+    },
+    streamingIcon: {
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    streamingText: {
+        fontSize: 20,
     },
     deleteIconButton: {
         backgroundColor: 'rgba(255, 71, 87, 0.2)',
@@ -631,35 +658,11 @@ const styles = StyleSheet.create({
     deleteIconText: {
         fontSize: 16,
     },
-    signatureContainer: {
-        flexDirection: 'row',
-        marginBottom: 8,
-        flexWrap: 'wrap',
-    },
-    signatureLabel: {
-        fontSize: 13,
-        color: 'rgba(255, 255, 255, 0.8)',
-        fontWeight: '600',
-    },
-    signatureText: {
-        fontSize: 13,
-        color: 'white',
-        fontStyle: 'italic',
-    },
-    spotReview: {
+    showReview: {
         fontSize: 14,
         color: 'rgba(255, 255, 255, 0.9)',
         fontStyle: 'italic',
         lineHeight: 20,
-        marginBottom: 8,
-    },
-    visitedContainer: {
-        alignItems: 'flex-end',
-    },
-    visitedText: {
-        fontSize: 11,
-        color: 'rgba(255, 255, 255, 0.6)',
-        fontStyle: 'italic',
     },
     expandedAddButton: {
         backgroundColor: 'rgba(255, 255, 255, 0.2)',
@@ -693,4 +696,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default FoodieSpotsWidget;
+export default TVShowsWidget;
