@@ -3,268 +3,176 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
+  TextInput,
   TouchableOpacity,
-  ActivityIndicator,
-  Image,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useNavigation } from "@react-navigation/native";
+import { useRoute } from "@react-navigation/native";
 import {
   collection,
+  addDoc,
   query,
-  where,
-  onSnapshot,
   orderBy,
+  onSnapshot,
+  serverTimestamp,
   doc,
   getDoc,
 } from "firebase/firestore";
 import { db } from "../backend/FirebaseConfig";
 
-export default function MessagesScreen() {
-  const [currentUserEmail, setCurrentUserEmail] = useState(null);
-  const [chats, setChats] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const navigation = useNavigation();
+export default function ChatRoom() {
+  const route = useRoute();
+  const { chatId, otherUser, currentUserEmail } = route.params;
 
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [backgroundColor, setBackgroundColor] = useState("#f8f9fa"); // Default fallback
+
+  // Fetch background color from Firestore
   useEffect(() => {
-    const fetchUser = async () => {
-      const email = await AsyncStorage.getItem("currentUserEmail");
-      if (email) setCurrentUserEmail(email);
-    };
-    fetchUser();
-  }, []);
+    const fetchColor = async () => {
+      try {
+        const otherUserId = otherUser.replace(/\./g, "_");
+        const userRef = doc(db, "users", otherUserId);
+        const userSnap = await getDoc(userRef);
 
-  useEffect(() => {
-    if (!currentUserEmail) return;
-
-    const q = query(
-      collection(db, "chats"),
-      where("participants", "array-contains", currentUserEmail),
-      orderBy("lastTimestamp", "desc")
-    );
-
-    const unsubscribe = onSnapshot(
-      q,
-      async (snapshot) => {
-        const chatData = await Promise.all(
-          snapshot.docs.map(async (docSnap) => {
-            const chat = { id: docSnap.id, ...docSnap.data() };
-            const otherUser = chat.participants.find(
-              (p) => p !== currentUserEmail
-            );
-
-            let displayName = otherUser;
-            let profilePhoto = null;
-            let backgroundColor = "#ffffff";
-
-            try {
-              const userDoc = await getDoc(
-                doc(db, "users", otherUser.replace(/\./g, "_"))
-              );
-              if (userDoc.exists()) {
-                const userData = userDoc.data();
-                displayName = `${userData.firstName || ""} ${userData.lastName || ""}`.trim();
-                profilePhoto = userData.profilePhotoURL || null;
-                backgroundColor = userData.profileBackgroundColor || "#ffffff";
-              }
-            } catch (err) {
-              console.error("❌ Error getting user data:", err);
-            }
-
-            return {
-              ...chat,
-              otherUserEmail: otherUser,
-              displayName,
-              profilePhoto,
-              backgroundColor,
-            };
-          })
-        );
-
-        setChats(chatData);
-        setLoading(false);
-      },
-      (error) => {
-        console.error("❌ Error fetching chats:", error);
-        setLoading(false);
+        if (userSnap.exists()) {
+          const userData = userSnap.data();
+          if (userData.profileBackgroundColor) {
+            setBackgroundColor(userData.profileBackgroundColor);
+          }
+        }
+      } catch (error) {
+        console.error("❌ Error fetching user background color:", error);
       }
-    );
+    };
+
+    if (otherUser) fetchColor();
+  }, [otherUser]);
+
+  // Load messages
+  useEffect(() => {
+    const messagesRef = collection(db, "chats", chatId, "messages");
+    const q = query(messagesRef, orderBy("timestamp", "asc"));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const loadedMessages = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setMessages(loadedMessages);
+    });
 
     return () => unsubscribe();
-  }, [currentUserEmail]);
+  }, [chatId]);
+
+  const handleSend = async () => {
+    if (!newMessage.trim()) return;
+
+    const messagesRef = collection(db, "chats", chatId, "messages");
+
+    await addDoc(messagesRef, {
+      sender: currentUserEmail,
+      text: newMessage,
+      timestamp: serverTimestamp(),
+    });
+
+    setNewMessage("");
+  };
 
   const renderItem = ({ item }) => {
-    const timestamp = item.lastTimestamp?.toDate?.().toLocaleString() || "";
-    const unread = item.unreadCount?.[currentUserEmail] || 0;
-
+    const isCurrentUser = item.sender === currentUserEmail;
     return (
-      <TouchableOpacity
-        style={[styles.chatCard, { backgroundColor: item.backgroundColor }]}
-        onPress={() =>
-          navigation.navigate("ChatRoom", {
-            chatId: item.id,
-            otherUser: item.otherUserEmail,
-            currentUserEmail,
-          })
-        }
+      <View
+        style={[
+          styles.messageBubble,
+          isCurrentUser ? styles.myMessage : styles.theirMessage,
+        ]}
       >
-        <View style={styles.chatRow}>
-          {item.profilePhoto ? (
-            <Image source={{ uri: item.profilePhoto }} style={styles.avatar} />
-          ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Text style={styles.initials}>
-                {item.displayName?.[0]?.toUpperCase() || "?"}
-              </Text>
-            </View>
-          )}
-          <View style={styles.chatText}>
-            <View style={styles.chatHeader}>
-              <Text style={styles.chatName}>{item.displayName}</Text>
-              <Text style={styles.timestamp}>{timestamp}</Text>
-            </View>
-            <View style={styles.chatFooter}>
-              <Text style={styles.chatMessage} numberOfLines={1}>
-                {item.lastMessage || "No messages yet"}
-              </Text>
-              {unread > 0 && (
-                <View style={styles.unreadBadge}>
-                  <Text style={styles.unreadText}>{unread}</Text>
-                </View>
-              )}
-            </View>
-          </View>
-        </View>
-      </TouchableOpacity>
+        <Text style={styles.messageText}>{item.text}</Text>
+      </View>
     );
   };
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#667eea" />
-        <Text>Loading chats...</Text>
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Messages</Text>
-      {chats.length === 0 ? (
-        <Text style={styles.emptyText}>No conversations yet</Text>
-      ) : (
-        <FlatList
-          data={chats}
-          keyExtractor={(item, index) => `${item.id}-${index}`}
-          renderItem={renderItem}
-          contentContainerStyle={styles.list}
+    <KeyboardAvoidingView
+      style={[styles.container, { backgroundColor }]}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      keyboardVerticalOffset={90}
+    >
+      <FlatList
+        data={messages}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        contentContainerStyle={styles.messagesList}
+      />
+
+      <View style={styles.inputContainer}>
+        <TextInput
+          value={newMessage}
+          onChangeText={setNewMessage}
+          placeholder="Type a message..."
+          style={styles.input}
         />
-      )}
-    </View>
+        <TouchableOpacity onPress={handleSend} style={styles.sendButton}>
+          <Text style={styles.sendText}>Send</Text>
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8f9fa",
-    paddingTop: 70,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: "bold",
-    color: "#2c3e50",
-    paddingBottom: 30,
-    textAlign: "center",
-  },
-  list: {
-    paddingHorizontal: 20,
-  },
-  chatCard: {
-    borderRadius: 16,
+  messagesList: {
     padding: 12,
-    marginBottom: 14,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
   },
-  chatRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    marginRight: 12,
-  },
-  avatarPlaceholder: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    marginRight: 12,
-    backgroundColor: "#ddd",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  initials: {
-    fontSize: 20,
-    color: "#555",
-    fontWeight: "600",
-  },
-  chatText: {
-    flex: 1,
-  },
-  chatHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 6,
-  },
-  chatName: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#333",
-  },
-  timestamp: {
-    fontSize: 12,
-    color: "#888",
-  },
-  chatFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  chatMessage: {
-    fontSize: 14,
-    color: "#555",
-    flex: 1,
-    marginRight: 10,
-  },
-  unreadBadge: {
-    backgroundColor: "#667eea",
+  messageBubble: {
+    padding: 10,
     borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    marginBottom: 8,
+    maxWidth: "75%",
+  },
+  myMessage: {
+    backgroundColor: "#667eea",
+    alignSelf: "flex-end",
+  },
+  theirMessage: {
+    backgroundColor: "#e5e5ea",
     alignSelf: "flex-start",
   },
-  unreadText: {
+  messageText: {
     color: "white",
-    fontSize: 12,
-    fontWeight: "bold",
   },
-  loadingContainer: {
+  inputContainer: {
+    flexDirection: "row",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#ccc",
+    backgroundColor: "white",
+  },
+  input: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: "#f1f3f6",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 10,
   },
-  emptyText: {
-    textAlign: "center",
-    color: "#888",
-    fontSize: 16,
-    marginTop: 40,
+  sendButton: {
+    backgroundColor: "#667eea",
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    justifyContent: "center",
+  },
+  sendText: {
+    color: "white",
+    fontWeight: "bold",
   },
 });
