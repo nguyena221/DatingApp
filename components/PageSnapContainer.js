@@ -21,7 +21,7 @@ const ProfileSnapView = ({ navigation, profileBgColor, setProfileBgColor }) => {
   const renderPage = ({ item, index }) => {
     const PageComponent = item.component;
     return (
-      <View style={{ height, paddingTop: 30 }}>
+      <View style={{ height }}>
         <PageComponent 
           scrollY={index === 0 ? scrollY : null}
           navigation={navigation}
