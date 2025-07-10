@@ -35,23 +35,23 @@ function DiscoverMainScreen({ navigation }) {
   const { currentUser } = useUser();
 
   const getDefaultGenderPreference = (userGender, userSexualOrientation) => {
-    if (!userSexualOrientation) return 'Both';
-    
+    if (!userSexualOrientation) return "Both";
+
     const orientation = userSexualOrientation.toLowerCase();
     const gender = userGender?.toLowerCase();
-    
-    if (orientation === 'straight') {
-      if (gender === 'male') return 'Female';
-      if (gender === 'female') return 'Male';
-      return 'Both'; // For other genders
-    } else if (orientation === 'gay') {
-      if (gender === 'male') return 'Male';
-      if (gender === 'female') return 'Female';
-      return 'Both'; // For other genders
-    } else if (orientation === 'bisexual') {
-      return 'Both';
+
+    if (orientation === "straight") {
+      if (gender === "male") return "Female";
+      if (gender === "female") return "Male";
+      return "Both"; // For other genders
+    } else if (orientation === "gay") {
+      if (gender === "male") return "Male";
+      if (gender === "female") return "Female";
+      return "Both"; // For other genders
+    } else if (orientation === "bisexual") {
+      return "Both";
     } else {
-      return 'Both'; // For other orientations
+      return "Both"; // For other orientations
     }
   };
 
@@ -62,13 +62,14 @@ function DiscoverMainScreen({ navigation }) {
       if (!currentUserEmail) return;
 
       const currentUserData = await getUserWithPersonality(currentUserEmail);
-      
-      let genderPreference = 'Both';
-      
+
+      let genderPreference = "Both";
+
       if (currentUserData.success && currentUserData.user) {
         // Check if user has set a gender preference
         if (currentUserData.user.locationSettings?.genderPreference) {
-          genderPreference = currentUserData.user.locationSettings.genderPreference;
+          genderPreference =
+            currentUserData.user.locationSettings.genderPreference;
         } else {
           // Use default based on sexual orientation
           genderPreference = getDefaultGenderPreference(
@@ -87,18 +88,18 @@ function DiscoverMainScreen({ navigation }) {
         if (userData.email !== currentUser?.email) {
           // Filter based on gender preference
           const userGender = userData.gender;
-          
-          if (genderPreference === 'Both') {
+
+          if (genderPreference === "Both") {
             profiles.push({
               id: doc.id,
               ...userData,
             });
-          } else if (genderPreference === 'Male' && userGender === 'Male') {
+          } else if (genderPreference === "Male" && userGender === "Male") {
             profiles.push({
               id: doc.id,
               ...userData,
             });
-          } else if (genderPreference === 'Female' && userGender === 'Female') {
+          } else if (genderPreference === "Female" && userGender === "Female") {
             profiles.push({
               id: doc.id,
               ...userData,
@@ -137,18 +138,57 @@ function DiscoverMainScreen({ navigation }) {
       );
 
       const existingChats = await getDocs(q);
-
       let chatId;
+
       if (!existingChats.empty) {
-        chatId = existingChats.docs[0].id;
+        const existingChatDoc = existingChats.docs[0];
+        chatId = existingChatDoc.id;
+
+        // Patch missing fields for old chats
+        const existingData = existingChatDoc.data();
+        const chatRef = doc(db, "chats", chatId);
+        const updates = {};
+
+        if (!existingData.visibility) {
+          updates.visibility = {
+            [currentEmail]: true,
+            [targetEmail]: true,
+          };
+        }
+
+        if (!existingData.unreadCount) {
+          updates.unreadCount = {
+            [currentEmail]: 0,
+            [targetEmail]: 0,
+          };
+        }
+
+        if (!("lastMessage" in existingData)) {
+          updates.lastMessage = "";
+        }
+
+        if (Object.keys(updates).length > 0) {
+          await updateDoc(chatRef, updates);
+        }
       } else {
-        const newChat = await addDoc(chatsRef, {
+        // Create new chat
+        const newChatDoc = await addDoc(chatsRef, {
           participants: [currentEmail, targetEmail],
           lastTimestamp: serverTimestamp(),
+          lastMessage: "",
+          visibility: {
+            [currentEmail]: true,
+            [targetEmail]: true,
+          },
+          unreadCount: {
+            [currentEmail]: 0,
+            [targetEmail]: 0,
+          },
         });
-        chatId = newChat.id;
+        chatId = newChatDoc.id;
       }
 
+      // Navigate to chat screen
       navigation.navigate("ChatRoom", {
         chatId,
         otherUser: targetEmail,
@@ -624,5 +664,5 @@ const styles = StyleSheet.create({
 
   icon: {
     marginRight: 8,
-  }  
+  },
 });
