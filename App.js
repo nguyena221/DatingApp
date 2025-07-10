@@ -23,6 +23,7 @@ import AddMovieScreen from './components/AddMovieScreen';
 import AddDestinationScreen from './components/AddDestinationScreen';
 import AddFoodieSpotScreen from './components/AddFoodieSpot';
 import AddTVShowScreen from './components/AddTVShowScreen';
+import AddFitnessGoalScreen from './components/AddFitnessGoalScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -136,6 +137,15 @@ function AppNavigator() {
       <Stack.Screen
         name="AddTVShow"
         component={AddTVShowScreen}
+        options={{ 
+          headerShown: false, 
+          presentation: 'modal',
+          animationTypeForReplace: 'push'
+        }}
+      />
+      <Stack.Screen
+        name="AddFitnessGoal"
+        component={AddFitnessGoalScreen}
         options={{ 
           headerShown: false, 
           presentation: 'modal',
