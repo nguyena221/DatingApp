@@ -21,13 +21,14 @@ import {
   getDoc,
   getDocs,
   limit,
+  updateDoc,
   deleteDoc,
+  writeBatch,
 } from "firebase/firestore";
 import { LinearGradient } from "expo-linear-gradient";
 import { db } from "../backend/FirebaseConfig";
 import { Ionicons } from "@expo/vector-icons";
 
-// Utility to darken a hex color
 const darkenHexColor = (hex, factor = 0.8) => {
   const f = parseInt(hex.slice(1), 16);
   const r = Math.floor(((f >> 16) & 255) * factor);
@@ -55,17 +56,17 @@ export default function MessagesScreen() {
 
     const q = query(
       collection(db, "chats"),
-      where("participants", "array-contains", currentUserEmail),
       orderBy("lastTimestamp", "desc")
     );
 
     const unsubscribe = onSnapshot(q, async (snapshot) => {
-      const chatData = await Promise.all(
-        snapshot.docs.map(async (docSnap) => {
-          const chatId = docSnap.id;
-          const chat = { id: chatId, ...docSnap.data() };
+      const rawChats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const visibleChats = rawChats.filter(chat => chat.visibility?.[currentUserEmail]);
 
-          // Get latest message
+      const chatData = await Promise.all(
+        visibleChats.map(async (chat) => {
+          const chatId = chat.id;
+
           const messagesRef = collection(db, "chats", chatId, "messages");
           const messagesQuery = query(
             messagesRef,
@@ -90,14 +91,11 @@ export default function MessagesScreen() {
                     sender = messageData.sender || "";
                   }
 
-                  unsubscribeMessage(); // Stop listening after the first snapshot
+                  unsubscribeMessage();
                   resolve({ msg, sender });
                 },
                 (error) => {
-                  console.error(
-                    "Error fetching last message in real-time:",
-                    error
-                  );
+                  console.error("Error fetching last message in real-time:", error);
                   resolve({ msg: "No Messages Available", sender: "" });
                 }
               );
@@ -110,9 +108,7 @@ export default function MessagesScreen() {
             console.error("Error fetching last message:", err);
           }
 
-          const otherUser = chat.participants.find(
-            (p) => p !== currentUserEmail
-          );
+          const otherUser = chat.participants.find((p) => p !== currentUserEmail);
 
           let displayName = otherUser;
           let profilePhoto = null;
@@ -124,9 +120,7 @@ export default function MessagesScreen() {
             );
             if (userDoc.exists()) {
               const userData = userDoc.data();
-              displayName = `${userData.firstName || ""} ${
-                userData.lastName || ""
-              }`.trim();
+              displayName = `${userData.firstName || ""} ${userData.lastName || ""}`.trim();
               profilePhoto = userData.profilePhotoURL || null;
               backgroundColor = userData.profileBackgroundColor || "#ffffff";
             }
@@ -139,7 +133,7 @@ export default function MessagesScreen() {
               ? "You: "
               : lastSender
               ? `${displayName.split(" ")[0]}: `
-              : ""; // if no sender, no prefix
+              : "";
 
           return {
             ...chat,
@@ -152,6 +146,7 @@ export default function MessagesScreen() {
           };
         })
       );
+
       console.log("📡 Updated chat list:", chatData);
       setChats(chatData);
       setLoading(false);
@@ -172,11 +167,29 @@ export default function MessagesScreen() {
           onPress: async () => {
             try {
               setLoading(true);
-              console.log("🔨 Deleting chat with ID:", chatId);
-              await deleteDoc(doc(db, "chats", chatId));
-              console.log("✅ Chat successfully deleted");
+              const chatRef = doc(db, "chats", chatId);
+              const chatSnap = await getDoc(chatRef);
+              if (chatSnap.exists()) {
+                const data = chatSnap.data();
+                const newVisibility = { ...data.visibility, [currentUserEmail]: false };
+
+                await updateDoc(chatRef, {
+                  visibility: newVisibility,
+                });
+
+                // Check if both users have hidden the chat
+                const allHidden = Object.values(newVisibility).every((v) => v === false);
+                if (allHidden) {
+                  const messagesRef = collection(db, "chats", chatId, "messages");
+                  const messagesSnap = await getDocs(messagesRef);
+                  const batch = writeBatch(db);
+                  messagesSnap.forEach((doc) => batch.delete(doc.ref));
+                  batch.delete(chatRef);
+                  await batch.commit();
+                }
+              }
             } catch (error) {
-              console.error("❌ Error deleting chat:", error);
+              console.error("❌ Error hiding/deleting chat:", error);
             } finally {
               setLoading(false);
             }
@@ -186,57 +199,48 @@ export default function MessagesScreen() {
     );
   };
 
-  const renderItem = ({ item }) => {
-    return (
-      <View style={{ position: "relative" }}>
-        <TouchableOpacity
-          onPress={() =>
-            navigation.navigate("ChatRoom", {
-              chatId: item.id,
-              otherUser: item.otherUserEmail,
-              currentUserEmail,
-            })
-          }
+  const renderItem = ({ item }) => (
+    <View style={{ position: "relative" }}>
+      <TouchableOpacity
+        onPress={() =>
+          navigation.navigate("ChatRoom", {
+            chatId: item.id,
+            otherUser: item.otherUserEmail,
+            currentUserEmail,
+          })
+        }
+      >
+        <LinearGradient
+          colors={[item.backgroundColor, item.darkerBackgroundColor]}
+          style={styles.chatCard}
         >
-          <LinearGradient
-            colors={[item.backgroundColor, item.darkerBackgroundColor]}
-            style={styles.chatCard}
-          >
-            <View style={styles.chatRow}>
-              {item.profilePhoto ? (
-                <Image
-                  source={{ uri: item.profilePhoto }}
-                  style={styles.avatar}
-                />
-              ) : (
-                <View style={styles.avatarPlaceholder}>
-                  <Text style={styles.initials}>
-                    {item.displayName
-                      ?.split(" ")
-                      .map((n) => n[0])
-                      .join("")
-                      .toUpperCase() || "?"}
-                  </Text>
-                </View>
-              )}
-              <View style={styles.chatText}>
-                <Text style={styles.chatName}>{item.displayName}</Text>
-                <Text style={styles.chatMessage} numberOfLines={1}>
-                  {item.lastMessage || "No messages yet"}
+          <View style={styles.chatRow}>
+            {item.profilePhoto ? (
+              <Image source={{ uri: item.profilePhoto }} style={styles.avatar} />
+            ) : (
+              <View style={styles.avatarPlaceholder}>
+                <Text style={styles.initials}>
+                  {item.displayName?.split(" ").map((n) => n[0]).join("").toUpperCase() || "?"}
                 </Text>
               </View>
-              <TouchableOpacity
-                onPress={() => confirmDeleteChat(item.id)}
-                style={styles.deleteButton}
-              >
-                <Ionicons name="close" size={24} color="black" />
-              </TouchableOpacity>
+            )}
+            <View style={styles.chatText}>
+              <Text style={styles.chatName}>{item.displayName}</Text>
+              <Text style={styles.chatMessage} numberOfLines={1}>
+                {item.lastMessage || "No messages yet"}
+              </Text>
             </View>
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
-    );
-  };
+            <TouchableOpacity
+              onPress={() => confirmDeleteChat(item.id)}
+              style={styles.deleteButton}
+            >
+              <Ionicons name="close" size={24} color="black" />
+            </TouchableOpacity>
+          </View>
+        </LinearGradient>
+      </TouchableOpacity>
+    </View>
+  );
 
   if (loading) {
     return (
