@@ -1,4 +1,3 @@
-// ... all your imports remain unchanged
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -75,7 +74,7 @@ export default function ChatRoom({ route }) {
 
   const sendMessage = async () => {
     if (!input.trim()) return;
-  
+
     try {
       await addDoc(collection(db, "chats", chatId, "messages"), {
         text: input.trim(),
@@ -87,11 +86,12 @@ export default function ChatRoom({ route }) {
     } catch (err) {
       console.error("❌ Failed to send message:", err);
     }
-  };  
+  };
 
   const renderHeader = () => {
-    const initials =
-      (userData.firstName?.[0] || "") + (userData.lastName?.[0] || "");
+    const initials = (
+      (userData.firstName?.[0] || "") + (userData.lastName?.[0] || "")
+    ).toString();
 
     return (
       <View style={[styles.headerContainer, { paddingTop: insets.top + 10 }]}>
@@ -110,7 +110,7 @@ export default function ChatRoom({ route }) {
           )}
           <View>
             <Text style={styles.displayName}>
-              {userData.firstName} {userData.lastName}
+              {(userData.firstName || "").toString()} {(userData.lastName || "").toString()}
             </Text>
             <Text style={styles.email}>{otherUser}</Text>
           </View>
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     minWidth: 60,
   },
   sendText: {
-    color: "#444", 
+    color: "#444",
     fontWeight: "bold",
   },
 });

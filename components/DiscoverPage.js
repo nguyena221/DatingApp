@@ -22,6 +22,7 @@ import {
   query,
   where,
   doc,
+  serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../backend/FirebaseConfig";
 import { calculateAge } from "../backend/UserService";
@@ -73,24 +74,32 @@ function DiscoverMainScreen({ navigation }) {
 
       if (!currentEmail || !targetEmail) return;
 
-      // Sort emails to make ID deterministic (same for both users)
-      const chatId = [currentEmail, targetEmail].sort().join("_");
-      const chatRef = doc(db, "chats", chatId);
+      const chatsRef = collection(db, "chats");
+      const q = query(
+        chatsRef,
+        where("participants", "in", [
+          [currentEmail, targetEmail],
+          [targetEmail, currentEmail],
+        ])
+      );
 
-      // Check if chat already exists
-      const chatSnap = await getDoc(chatRef);
-      if (!chatSnap.exists()) {
-        await setDoc(chatRef, {
-          id: chatId,
+      const existingChats = await getDocs(q);
+
+      let chatId;
+      if (!existingChats.empty) {
+        chatId = existingChats.docs[0].id;
+      } else {
+        const newChat = await addDoc(chatsRef, {
           participants: [currentEmail, targetEmail],
-          lastMessage: "",
-          lastTimestamp: new Date(),
+          lastTimestamp: serverTimestamp(),
         });
+        chatId = newChat.id;
       }
 
       navigation.navigate("ChatRoom", {
         chatId,
-        otherUser: targetUser,
+        otherUser: targetEmail,
+        currentUserEmail: currentEmail,
       });
     } catch (err) {
       console.error("Error starting chat:", err);

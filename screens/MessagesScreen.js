@@ -23,6 +23,7 @@ import {
 } from "firebase/firestore";
 import { LinearGradient } from "expo-linear-gradient";
 import { db } from "../backend/FirebaseConfig";
+import { Ionicons } from '@expo/vector-icons';
 
 // Utility to darken a hex color
 const darkenHexColor = (hex, factor = 0.8) => {
@@ -31,33 +32,6 @@ const darkenHexColor = (hex, factor = 0.8) => {
   const g = Math.floor(((f >> 8) & 255) * factor);
   const b = Math.floor((f & 255) * factor);
   return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
-};
-
-const confirmDeleteChat = async (chatId) => {
-  Alert.alert(
-    "Delete Chat",
-    "Are you sure you want to delete this conversation?",
-    [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            console.log("🔨 Deleting chat with ID:", chatId);
-            await deleteDoc(doc(db, "chats", chatId));
-            console.log("✅ Chat successfully deleted");
-
-            // Temporary feedback:
-            Alert.alert("Chat Deleted", "This chat has been removed from Firestore.");
-          } catch (error) {
-            console.error("❌ Error deleting chat:", error);
-            Alert.alert("Delete Failed", "Could not delete chat. Check console for error.");
-          }
-        },
-      },
-    ]
-  );
 };
 
 export default function MessagesScreen() {
@@ -121,12 +95,39 @@ export default function MessagesScreen() {
           };
         })
       );
+      console.log("📡 Updated chat list:", chatData);
       setChats(chatData);
       setLoading(false);
     });
 
     return () => unsubscribe();
   }, [currentUserEmail]);
+
+  const confirmDeleteChat = (chatId) => {
+    Alert.alert(
+      "Delete Chat",
+      "Are you sure you want to delete this conversation?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setLoading(true);
+              console.log("🔨 Deleting chat with ID:", chatId);
+              await deleteDoc(doc(db, "chats", chatId));
+              console.log("✅ Chat successfully deleted");
+            } catch (error) {
+              console.error("❌ Error deleting chat:", error);
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const renderItem = ({ item }) => {
     return (
@@ -171,7 +172,7 @@ export default function MessagesScreen() {
                 onPress={() => confirmDeleteChat(item.id)}
                 style={styles.deleteButton}
               >
-                <Text style={styles.deleteText}>✕</Text>
+                <Ionicons name="close" size={24} color="black" />
               </TouchableOpacity>
             </View>
           </LinearGradient>
@@ -269,10 +270,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   deleteButton: {
-    marginLeft: 10,
-    padding: 6,
     borderRadius: 20,
-    backgroundColor: "#ff4d4f",
+    color: "#000",
     justifyContent: "center",
     alignItems: "center",
     width: 30,
