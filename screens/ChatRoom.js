@@ -26,6 +26,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../backend/FirebaseConfig";
 import { Ionicons } from "@expo/vector-icons";
+import ViewUserProfile from "../components/ViewUserProfile";
 
 export default function ChatRoom({ route }) {
   const { chatId, otherUser, currentUserEmail } = route.params;
@@ -87,7 +88,14 @@ export default function ChatRoom({ route }) {
     } catch (err) {
       console.error("❌ Failed to send message:", err);
     }
-  };  
+  };
+
+  const handleProfilePhotoPress = () => {
+    // Navigate to ViewUserProfile with the other user's data
+    navigation.navigate("ViewUserProfile", {
+      userData: userData
+    });
+  };
 
   const renderHeader = () => {
     const initials =
@@ -99,21 +107,25 @@ export default function ChatRoom({ route }) {
           <Ionicons name="arrow-back" size={24} color="black" />
         </TouchableOpacity>
         <View style={styles.profileInfo}>
-          {userData.profilePhoto ? (
-            <Image source={{ uri: userData.profilePhoto }} style={styles.avatar} />
-          ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Text style={styles.initials}>
-                {initials.toUpperCase() || "?"}
+          <TouchableOpacity onPress={handleProfilePhotoPress} activeOpacity={0.7}>
+            {userData.profilePhotoURL ? (
+              <Image source={{ uri: userData.profilePhotoURL }} style={styles.avatar} />
+            ) : (
+              <View style={styles.avatarPlaceholder}>
+                <Text style={styles.initials}>
+                  {initials.toUpperCase() || "?"}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleProfilePhotoPress} activeOpacity={0.7}>
+            <View>
+              <Text style={styles.displayName}>
+                {userData.firstName} {userData.lastName}
               </Text>
+              <Text style={styles.email}>{otherUser}</Text>
             </View>
-          )}
-          <View>
-            <Text style={styles.displayName}>
-              {userData.firstName} {userData.lastName}
-            </Text>
-            <Text style={styles.email}>{otherUser}</Text>
-          </View>
+          </TouchableOpacity>
         </View>
       </View>
     );
