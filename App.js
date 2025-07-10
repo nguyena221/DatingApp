@@ -18,6 +18,8 @@ import QuizWithFirebase from './components/PersonalityQuiz';
 import LifestyleQuizWithFirebase from './components/LifestyleQuiz';
 import MessagesScreen from './screens/MessagesScreen';
 import ChatRoom from './screens/ChatRoom';
+
+import AddBookScreen from './components/AddBookScreen';
 import AddBookScreen from './components/AddBookScreen'
 import AddMovieScreen from './components/AddMovieScreen';
 import AddDestinationScreen from './components/AddDestinationScreen';
@@ -26,13 +28,14 @@ import AddTVShowScreen from './components/AddTVShowScreen';
 import AddFitnessGoalScreen from './components/AddFitnessGoalScreen';
 import AddHobbySkillScreen from './components/AddHobbySkillScreen';
 
+
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function TabNavigator() {
   const insets = useSafeAreaInsets();
   const [scrollY] = useState(new Animated.Value(0));
-  
+
   // Animate tab bar based on scroll
   const tabBarTranslateY = scrollY.interpolate({
     inputRange: [0, 100],
@@ -91,23 +94,32 @@ function TabNavigator() {
 
 function AppNavigator() {
   return (
-    <Stack.Navigator initialRouteName="Login" screenOptions={{ headerShown: false }}>
+    <Stack.Navigator
+      initialRouteName="Login"
+      screenOptions={{ headerShown: false }}
+    >
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Home" component={TabNavigator} />
+
       <Stack.Screen
         name="EditProfile"
         component={EditProfileScreen}
-        options={{ headerShown: false, presentation: 'modal' }}
+        options={{
+          headerShown: false,
+          presentation: 'modal',
+        }}
       />
+
       <Stack.Screen
         name="AddBook"
         component={AddBookScreen}
-        options={{ 
-          headerShown: false, 
+        options={{
+          headerShown: false,
           presentation: 'modal',
-          animationTypeForReplace: 'push'
+          animationTypeForReplace: 'push',
         }}
       />
+
       <Stack.Screen
         name="AddMovie"
         component={AddMovieScreen}
@@ -172,6 +184,7 @@ function AppNavigator() {
           presentation: 'modal',
         }}
       />
+
       <Stack.Screen
         name="LifestyleQuiz"
         component={LifestyleQuizWithFirebase}
@@ -182,12 +195,12 @@ function AppNavigator() {
           presentation: 'modal',
         }}
       />
+
       <Stack.Screen
         name="ChatRoom"
         component={ChatRoom}
         options={{
-          headerShown: true,
-          headerTitle: 'Chat',
+          headerShown: false,
         }}
       />
     </Stack.Navigator>

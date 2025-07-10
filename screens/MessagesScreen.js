@@ -19,7 +19,17 @@ import {
   doc,
   getDoc,
 } from "firebase/firestore";
+import { LinearGradient } from "expo-linear-gradient";
 import { db } from "../backend/FirebaseConfig";
+
+// Utility to darken a hex color
+const darkenHexColor = (hex, factor = 0.8) => {
+  const f = parseInt(hex.slice(1), 16);
+  const r = Math.floor(((f >> 16) & 255) * factor);
+  const g = Math.floor(((f >> 8) & 255) * factor);
+  const b = Math.floor((f & 255) * factor);
+  return `#${(r << 16 | g << 8 | b).toString(16).padStart(6, "0")}`;
+};
 
 export default function MessagesScreen() {
   const [currentUserEmail, setCurrentUserEmail] = useState(null);
@@ -44,63 +54,55 @@ export default function MessagesScreen() {
       orderBy("lastTimestamp", "desc")
     );
 
-    const unsubscribe = onSnapshot(
-      q,
-      async (snapshot) => {
-        const chatData = await Promise.all(
-          snapshot.docs.map(async (docSnap) => {
-            const chat = { id: docSnap.id, ...docSnap.data() };
-            const otherUser = chat.participants.find(
-              (p) => p !== currentUserEmail
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      const chatData = await Promise.all(
+        snapshot.docs.map(async (docSnap) => {
+          const chat = { id: docSnap.id, ...docSnap.data() };
+          const otherUser = chat.participants.find(
+            (p) => p !== currentUserEmail
+          );
+
+          let displayName = otherUser;
+          let profilePhoto = null;
+          let backgroundColor = "#ffffff";
+
+          try {
+            const userDoc = await getDoc(
+              doc(db, "users", otherUser.replace(/\./g, "_"))
             );
-
-            let displayName = otherUser;
-            let profilePhoto = null;
-            let backgroundColor = "#ffffff";
-
-            try {
-              const userDoc = await getDoc(
-                doc(db, "users", otherUser.replace(/\./g, "_"))
-              );
-              if (userDoc.exists()) {
-                const userData = userDoc.data();
-                displayName = `${userData.firstName || ""} ${userData.lastName || ""}`.trim();
-                profilePhoto = userData.profilePhotoURL || null;
-                backgroundColor = userData.profileBackgroundColor || "#ffffff";
-              }
-            } catch (err) {
-              console.error("❌ Error getting user data:", err);
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              displayName = `${userData.firstName || ""} ${
+                userData.lastName || ""
+              }`.trim();
+              profilePhoto = userData.profilePhotoURL || null;
+              backgroundColor =
+                userData.profileBackgroundColor || "#ffffff";
             }
+          } catch (err) {
+            console.error("Error fetching user data:", err);
+          }
 
-            return {
-              ...chat,
-              otherUserEmail: otherUser,
-              displayName,
-              profilePhoto,
-              backgroundColor,
-            };
-          })
-        );
-
-        setChats(chatData);
-        setLoading(false);
-      },
-      (error) => {
-        console.error("❌ Error fetching chats:", error);
-        setLoading(false);
-      }
-    );
+          return {
+            ...chat,
+            otherUserEmail: otherUser,
+            displayName,
+            profilePhoto,
+            backgroundColor,
+            darkerBackgroundColor: darkenHexColor(backgroundColor),
+          };
+        })
+      );
+      setChats(chatData);
+      setLoading(false);
+    });
 
     return () => unsubscribe();
   }, [currentUserEmail]);
 
   const renderItem = ({ item }) => {
-    const timestamp = item.lastTimestamp?.toDate?.().toLocaleString() || "";
-    const unread = item.unreadCount?.[currentUserEmail] || 0;
-
     return (
       <TouchableOpacity
-        style={[styles.chatCard, { backgroundColor: item.backgroundColor }]}
         onPress={() =>
           navigation.navigate("ChatRoom", {
             chatId: item.id,
@@ -109,33 +111,32 @@ export default function MessagesScreen() {
           })
         }
       >
-        <View style={styles.chatRow}>
-          {item.profilePhoto ? (
-            <Image source={{ uri: item.profilePhoto }} style={styles.avatar} />
-          ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Text style={styles.initials}>
-                {item.displayName?.[0]?.toUpperCase() || "?"}
-              </Text>
-            </View>
-          )}
-          <View style={styles.chatText}>
-            <View style={styles.chatHeader}>
+        <LinearGradient
+          colors={[item.backgroundColor, item.darkerBackgroundColor]}
+          style={styles.chatCard}
+        >
+          <View style={styles.chatRow}>
+            {item.profilePhoto ? (
+              <Image source={{ uri: item.profilePhoto }} style={styles.avatar} />
+            ) : (
+              <View style={styles.avatarPlaceholder}>
+                <Text style={styles.initials}>
+                  {item.displayName
+                    ?.split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .toUpperCase() || "?"}
+                </Text>
+              </View>
+            )}
+            <View style={styles.chatText}>
               <Text style={styles.chatName}>{item.displayName}</Text>
-              <Text style={styles.timestamp}>{timestamp}</Text>
-            </View>
-            <View style={styles.chatFooter}>
               <Text style={styles.chatMessage} numberOfLines={1}>
                 {item.lastMessage || "No messages yet"}
               </Text>
-              {unread > 0 && (
-                <View style={styles.unreadBadge}>
-                  <Text style={styles.unreadText}>{unread}</Text>
-                </View>
-              )}
             </View>
           </View>
-        </View>
+        </LinearGradient>
       </TouchableOpacity>
     );
   };
@@ -144,26 +145,19 @@ export default function MessagesScreen() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#667eea" />
-        <Text>Loading chats...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <View style={{bottom:13}}>
-        <Text style={styles.title}>Messages</Text>
-      </View>
-      {chats.length === 0 ? (
-        <Text style={styles.emptyText}>No conversations yet</Text>
-      ) : (
-        <FlatList
-          data={chats}
-          keyExtractor={(item, index) => `${item.id}-${index}`}
-          renderItem={renderItem}
-          contentContainerStyle={styles.list}
-        />
-      )}
+      <Text style={styles.title}>Messages</Text>
+      <FlatList
+        data={chats}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        contentContainerStyle={styles.list}
+      />
     </View>
   );
 }
@@ -185,7 +179,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   chatCard: {
-    borderRadius: 16,
+    borderRadius: 35,
     padding: 12,
     marginBottom: 14,
     shadowColor: "#000",
@@ -221,52 +215,18 @@ const styles = StyleSheet.create({
   chatText: {
     flex: 1,
   },
-  chatHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 6,
-  },
   chatName: {
     fontSize: 16,
     fontWeight: "bold",
     color: "#333",
   },
-  timestamp: {
-    fontSize: 12,
-    color: "#888",
-  },
-  chatFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
   chatMessage: {
     fontSize: 14,
     color: "#555",
-    flex: 1,
-    marginRight: 10,
-  },
-  unreadBadge: {
-    backgroundColor: "#667eea",
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    alignSelf: "flex-start",
-  },
-  unreadText: {
-    color: "white",
-    fontSize: 12,
-    fontWeight: "bold",
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-  },
-  emptyText: {
-    textAlign: "center",
-    color: "#888",
-    fontSize: 16,
-    marginTop: 40,
   },
 });
