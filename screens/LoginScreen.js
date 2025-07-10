@@ -7,9 +7,11 @@ import SubmitButton from "../components/SubmitButton";
 import { UseLoginHandlers } from "../hook/UseLoginHandlers";
 import AsyncStorage from '@react-native-async-storage/async-storage'; // ✅ Added
 import styles from "../styles/LoginScreenStyle";
+import { useUser } from "../contexts/UserContext";
 
 export default function LoginScreen() {
   const navigation = useNavigation();
+  const { login: contextLogin } = useUser();
 
   const [email, setEmail] = useState("test2@example.com");
   const [pass, setPass] = useState("pass123");
@@ -24,6 +26,7 @@ export default function LoginScreen() {
   const login = async (email) => {
     try {
       await AsyncStorage.setItem("userEmail", email);
+      contextLogin({ email }); // ✅ Also update the UserContext
     } catch (error) {
       console.error("Failed to save userEmail:", error);
     }

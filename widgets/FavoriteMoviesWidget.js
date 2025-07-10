@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
     StyleSheet, 
     Text, 
@@ -13,75 +13,51 @@ import {
     Alert
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useUser } from '../contexts/UserContext';
+import { useFocusEffect } from '@react-navigation/native';
+import { 
+    getUserWidgetData, 
+    removeWidgetItem, 
+    updateWidgetItem 
+} from '../backend/UserService';
+import AddMovieScreen from '../components/AddMovieScreen';
 
 const { width, height } = Dimensions.get('window');
 
-const FavoriteMoviesWidget = () => {
+const FavoriteMoviesWidget = ({ navigation }) => {
     const [isExpanded, setIsExpanded] = useState(false);
-    const [movies] = useState([
-        { 
-            id: 1, 
-            title: 'Inception', 
-            year: 2010, 
-            genre: 'Sci-Fi', 
-            rating: 5, 
-            poster: '🎭',
-            review: 'Mind-bending masterpiece! The layers of dreams within dreams had me thinking for days.',
-            letterboxdUrl: 'https://letterboxd.com/film/inception/'
-        },
-        { 
-            id: 2, 
-            title: 'Parasite', 
-            year: 2019, 
-            genre: 'Thriller', 
-            rating: 5, 
-            poster: '🏠',
-            review: 'Brilliant social commentary. Every scene was perfectly crafted.',
-            letterboxdUrl: 'https://letterboxd.com/film/parasite-2019/'
-        },
-        { 
-            id: 3, 
-            title: 'La La Land', 
-            year: 2016, 
-            genre: 'Musical', 
-            rating: 4, 
-            poster: '🎵',
-            review: 'Beautiful cinematography and music, though the ending broke my heart!',
-            letterboxdUrl: 'https://letterboxd.com/film/la-la-land/'
-        },
-        { 
-            id: 4, 
-            title: 'Dune', 
-            year: 2021, 
-            genre: 'Sci-Fi', 
-            rating: 4, 
-            poster: '🏜️',
-            review: 'Stunning visuals and sound design. Can\'t wait for Part Two!',
-            letterboxdUrl: 'https://letterboxd.com/film/dune-2021/'
-        },
-        { 
-            id: 5, 
-            title: 'Everything Everywhere All at Once', 
-            year: 2022, 
-            genre: 'Adventure', 
-            rating: 5, 
-            poster: '🌀',
-            review: 'Chaotic, emotional, and absolutely brilliant. A true cinematic experience.',
-            letterboxdUrl: 'https://letterboxd.com/film/everything-everywhere-all-at-once/'
-        },
-        { 
-            id: 6, 
-            title: 'The Grand Budapest Hotel', 
-            year: 2014, 
-            genre: 'Comedy', 
-            rating: 4, 
-            poster: '🏨',
-            review: 'Wes Anderson\'s visual style is unmatched. Charming and whimsical.',
-            letterboxdUrl: 'https://letterboxd.com/film/the-grand-budapest-hotel/'
-        },
-    ]);
+    const [movies, setMovies] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const { user } = useUser();
 
-    const averageRating = (movies.reduce((sum, movie) => sum + movie.rating, 0) / movies.length).toFixed(1);
+    // Load movies from database when component mounts or regains focus
+    useFocusEffect(
+        useCallback(() => {
+            loadMoviesFromDatabase();
+        }, [])
+    );
+
+    const loadMoviesFromDatabase = async () => {
+        try {
+            setLoading(true);
+            const userEmail = user?.email || "test2@example.com";
+            const result = await getUserWidgetData(userEmail, 'movies');
+            
+            if (result.success && result.data) {
+                setMovies(result.data.movies || []);
+            } else {
+                console.log("No movies data found, starting with empty array");
+                setMovies([]);
+            }
+        } catch (error) {
+            console.error("Error loading movies:", error);
+            setMovies([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const averageRating = movies.length > 0 ? (movies.reduce((sum, movie) => sum + movie.rating, 0) / movies.length).toFixed(1) : 0;
     const favoriteGenres = [...new Set(movies.map(m => m.genre))];
 
     const openExpanded = () => {
@@ -92,7 +68,28 @@ const FavoriteMoviesWidget = () => {
         setIsExpanded(false);
     };
 
+    // Navigate to AddMovie screen
+    const handleAddMovie = () => {
+        console.log('🎬 Navigating to AddMovie screen');
+        console.log('🎬 Navigation object:', navigation);
+        
+        // Close the expanded modal first
+        setIsExpanded(false);
+        
+        // Then navigate after a small delay to ensure modal is closed
+        setTimeout(() => {
+            if (navigation && navigation.navigate) {
+                navigation.navigate('AddMovie');
+            } else {
+                console.error('❌ Navigation not available');
+                Alert.alert('Error', 'Navigation not available. Please try again.');
+            }
+        }, 300);
+    };
+
     const openLetterboxdLink = async (url) => {
+        if (!url) return;
+        
         try {
             const supported = await Linking.canOpenURL(url);
             if (supported) {
@@ -105,17 +102,86 @@ const FavoriteMoviesWidget = () => {
         }
     };
 
-    const renderStars = (rating, size = 12) => {
+    const handleRemoveMovie = async (movieId) => {
+        console.log('🗑️ handleRemoveMovie called with movieId:', movieId);
+        
+        Alert.alert(
+            'Remove Movie',
+            'Are you sure you want to remove this movie from your collection?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                { 
+                    text: 'Remove', 
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            console.log('🗑️ User confirmed deletion');
+                            const userEmail = user?.email || "test2@example.com";
+                            console.log('🗑️ Removing movie from database for user:', userEmail);
+                            
+                            const result = await removeWidgetItem(userEmail, 'movies', movieId);
+                            console.log('🗑️ Database result:', result);
+                            
+                            if (result.success) {
+                                console.log('✅ Movie removed from database, updating local state');
+                                setMovies(prevMovies => {
+                                    const updatedMovies = prevMovies.filter(movie => movie.id !== movieId);
+                                    console.log('✅ Updated movies array:', updatedMovies);
+                                    return updatedMovies;
+                                });
+                                Alert.alert('Success', 'Movie removed successfully!');
+                            } else {
+                                console.log('❌ Database removal failed:', result.message);
+                                Alert.alert('Error', result.message || 'Failed to remove movie');
+                            }
+                        } catch (error) {
+                            console.error("❌ Error removing movie:", error);
+                            Alert.alert('Error', 'Failed to remove movie');
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleUpdateMovieRating = async (movieId, newRating) => {
+        try {
+            const userEmail = user?.email || "test2@example.com";
+            const result = await updateWidgetItem(userEmail, 'movies', movieId, { rating: newRating });
+            
+            if (result.success) {
+                setMovies(prevMovies => 
+                    prevMovies.map(movie => 
+                        movie.id === movieId ? { ...movie, rating: newRating } : movie
+                    )
+                );
+            } else {
+                Alert.alert('Error', result.message || 'Failed to update rating');
+            }
+        } catch (error) {
+            console.error("Error updating rating:", error);
+            Alert.alert('Error', 'Failed to update rating');
+        }
+    };
+
+    const renderStars = (rating, size = 12, interactive = false, movieId = null) => {
         return Array.from({ length: 5 }, (_, i) => (
-            <Text key={i} style={[styles.star, { fontSize: size }]}>
-                {i < rating ? '★' : '☆'}
-            </Text>
+            <TouchableOpacity
+                key={i}
+                disabled={!interactive}
+                onPress={interactive ? () => handleUpdateMovieRating(movieId, i + 1) : undefined}
+                activeOpacity={interactive ? 0.7 : 1}
+            >
+                <Text style={[styles.star, { fontSize: size }]}>
+                    {i < rating ? '★' : '☆'}
+                </Text>
+            </TouchableOpacity>
         ));
     };
 
     // Compact Widget View
     const CompactWidget = () => (
-        <TouchableOpacity onPress={openExpanded} style={styles.widgetContainer}>
+        <TouchableOpacity onPress={openExpanded} style={styles.widgetContainer} activeOpacity={0.8}>
             <LinearGradient
                 colors={['#ff6b6b', '#feca57']}
                 style={styles.container}
@@ -130,22 +196,28 @@ const FavoriteMoviesWidget = () => {
                     </View>
                 </View>
 
-                <ScrollView style={styles.moviesList} showsVerticalScrollIndicator={false}>
-                    {movies.slice(0, 3).map((movie) => (
-                        <View key={movie.id} style={styles.movieItem}>
-                            <View style={styles.movieLeft}>
-                                <Text style={styles.poster}>{movie.poster}</Text>
-                                <View style={styles.movieInfo}>
-                                    <Text style={styles.movieTitle} numberOfLines={1}>{movie.title}</Text>
-                                    <Text style={styles.movieYear}>{movie.year} • {movie.genre}</Text>
+                {loading ? (
+                    <View style={styles.loadingContainer}>
+                        <Text style={styles.loadingText}>Loading movies...</Text>
+                    </View>
+                ) : (
+                    <ScrollView style={styles.moviesList} showsVerticalScrollIndicator={false}>
+                        {movies.slice(0, 3).map((movie) => (
+                            <View key={movie.id} style={styles.movieItem}>
+                                <View style={styles.movieLeft}>
+                                    <Text style={styles.poster}>{movie.poster}</Text>
+                                    <View style={styles.movieInfo}>
+                                        <Text style={styles.movieTitle} numberOfLines={1}>{movie.title}</Text>
+                                        <Text style={styles.movieYear}>{movie.year} • {movie.genre}</Text>
+                                    </View>
+                                </View>
+                                <View style={styles.ratingContainer}>
+                                    {renderStars(movie.rating)}
                                 </View>
                             </View>
-                            <View style={styles.ratingContainer}>
-                                {renderStars(movie.rating)}
-                            </View>
-                        </View>
-                    ))}
-                </ScrollView>
+                        ))}
+                    </ScrollView>
+                )}
 
                 <View style={styles.expandHint}>
                     <Text style={styles.expandHintText}>Tap to see all {movies.length} movies</Text>
@@ -159,7 +231,7 @@ const FavoriteMoviesWidget = () => {
         <Modal
             visible={isExpanded}
             animationType="slide"
-            presentationStyle="pageSheet"
+            presentationStyle="fullScreen"
             onRequestClose={closeExpanded}
         >
             <StatusBar barStyle="light-content" backgroundColor="#ff6b6b" />
@@ -172,7 +244,7 @@ const FavoriteMoviesWidget = () => {
                 <SafeAreaView style={styles.expandedSafeArea}>
                     {/* Header */}
                     <View style={styles.expandedHeader}>
-                        <TouchableOpacity onPress={closeExpanded} style={styles.closeButton}>
+                        <TouchableOpacity onPress={closeExpanded} style={styles.closeButton} activeOpacity={0.7}>
                             <Text style={styles.closeButtonText}>✕</Text>
                         </TouchableOpacity>
                         <Text style={styles.expandedTitle}>🎬 My Movie Collection</Text>
@@ -196,49 +268,83 @@ const FavoriteMoviesWidget = () => {
                     </View>
 
                     {/* Genre Tags */}
-                    <View style={styles.genreContainer}>
-                        <Text style={styles.genreTitle}>Favorite Genres:</Text>
-                        <View style={styles.genreTags}>
-                            {favoriteGenres.map((genre, index) => (
-                                <View key={index} style={styles.genreTag}>
-                                    <Text style={styles.genreText}>{genre}</Text>
-                                </View>
-                            ))}
+                    {favoriteGenres.length > 0 && (
+                        <View style={styles.genreContainer}>
+                            <Text style={styles.genreTitle}>Favorite Genres:</Text>
+                            <View style={styles.genreTags}>
+                                {favoriteGenres.map((genre, index) => (
+                                    <View key={index} style={styles.genreTag}>
+                                        <Text style={styles.genreText}>{genre}</Text>
+                                    </View>
+                                ))}
+                            </View>
                         </View>
-                    </View>
+                    )}
 
                     {/* Movies List */}
-                    <ScrollView style={styles.expandedMoviesList} showsVerticalScrollIndicator={false}>
-                        {movies.map((movie) => (
-                            <TouchableOpacity 
-                                key={movie.id} 
-                                style={styles.expandedMovieItem}
-                                onPress={() => openLetterboxdLink(movie.letterboxdUrl)}
-                            >
-                                <View style={styles.expandedMovieHeader}>
-                                    <View style={styles.movieLeft}>
-                                        <Text style={styles.expandedPoster}>{movie.poster}</Text>
-                                        <View style={styles.movieInfo}>
-                                            <Text style={styles.expandedMovieTitle}>{movie.title}</Text>
-                                            <Text style={styles.expandedMovieYear}>{movie.year} • {movie.genre}</Text>
-                                            <View style={styles.expandedRatingContainer}>
-                                                {renderStars(movie.rating, 16)}
+                    <ScrollView 
+                        style={styles.expandedMoviesList} 
+                        showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
+                    >
+                        {movies.length === 0 ? (
+                            <View style={styles.emptyState}>
+                                <Text style={styles.emptyStateText}>No movies in your collection yet!</Text>
+                                <Text style={styles.emptyStateSubtext}>Add your first movie to get started</Text>
+                            </View>
+                        ) : (
+                            movies.map((movie) => (
+                                <View key={movie.id} style={styles.swipeableContainer}>
+                                    <TouchableOpacity 
+                                        style={styles.expandedMovieItem}
+                                        onPress={() => openLetterboxdLink(movie.letterboxdUrl)}
+                                        activeOpacity={0.7}
+                                    >
+                                        <View style={styles.expandedMovieHeader}>
+                                            <View style={styles.movieLeft}>
+                                                <Text style={styles.expandedPoster}>{movie.poster}</Text>
+                                                <View style={styles.movieInfo}>
+                                                    <Text style={styles.expandedMovieTitle}>{movie.title}</Text>
+                                                    <Text style={styles.expandedMovieYear}>{movie.year} • {movie.genre}</Text>
+                                                    <View style={styles.expandedRatingContainer}>
+                                                        {renderStars(movie.rating, 16, true, movie.id)}
+                                                    </View>
+                                                </View>
+                                            </View>
+                                            <View style={styles.movieActions}>
+                                                {movie.letterboxdUrl && (
+                                                    <View style={styles.letterboxdIcon}>
+                                                        <Text style={styles.letterboxdText}>🎬</Text>
+                                                    </View>
+                                                )}
+                                                {/* Delete Button */}
+                                                <TouchableOpacity
+                                                    style={styles.deleteIconButton}
+                                                    onPress={() => {
+                                                        console.log('🗑️ Delete button pressed for movie:', movie.id, movie.title);
+                                                        handleRemoveMovie(movie.id);
+                                                    }}
+                                                    activeOpacity={0.7}
+                                                >
+                                                    <Text style={styles.deleteIconText}>🗑️</Text>
+                                                </TouchableOpacity>
                                             </View>
                                         </View>
-                                    </View>
-                                    <View style={styles.letterboxdIcon}>
-                                        <Text style={styles.letterboxdText}>🎬</Text>
-                                    </View>
+                                        {movie.review && (
+                                            <Text style={styles.movieReview}>"{movie.review}"</Text>
+                                        )}
+                                    </TouchableOpacity>
                                 </View>
-                                {movie.review && (
-                                    <Text style={styles.movieReview}>"{movie.review}"</Text>
-                                )}
-                            </TouchableOpacity>
-                        ))}
+                            ))
+                        )}
                     </ScrollView>
 
                     {/* Add Button */}
-                    <TouchableOpacity style={styles.expandedAddButton}>
+                    <TouchableOpacity 
+                        style={styles.expandedAddButton}
+                        onPress={handleAddMovie}
+                        activeOpacity={0.8}
+                    >
                         <Text style={styles.expandedAddButtonText}>+ Add New Movie</Text>
                     </TouchableOpacity>
                 </SafeAreaView>
@@ -342,6 +448,17 @@ const styles = StyleSheet.create({
         fontStyle: 'italic',
     },
 
+    // Loading state
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    loadingText: {
+        color: 'rgba(255, 255, 255, 0.8)',
+        fontSize: 14,
+    },
+
     // Expanded Modal Styles
     expandedContainer: {
         flex: 1,
@@ -429,17 +546,24 @@ const styles = StyleSheet.create({
     expandedMoviesList: {
         flex: 1,
     },
+    swipeableContainer: {
+        marginBottom: 12,
+    },
     expandedMovieItem: {
         backgroundColor: 'rgba(255, 255, 255, 0.15)',
         borderRadius: 12,
         padding: 16,
-        marginBottom: 12,
     },
     expandedMovieHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
         marginBottom: 8,
+    },
+    movieActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
     },
     expandedPoster: {
         fontSize: 24,
@@ -466,6 +590,19 @@ const styles = StyleSheet.create({
     letterboxdText: {
         fontSize: 20,
     },
+    deleteIconButton: {
+        backgroundColor: 'rgba(255, 71, 87, 0.2)',
+        borderRadius: 20,
+        width: 36,
+        height: 36,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 71, 87, 0.4)',
+    },
+    deleteIconText: {
+        fontSize: 16,
+    },
     movieReview: {
         fontSize: 14,
         color: 'rgba(255, 255, 255, 0.9)',
@@ -485,6 +622,22 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
         textAlign: 'center',
+    },
+    
+    // Empty state
+    emptyState: {
+        alignItems: 'center',
+        paddingVertical: 40,
+    },
+    emptyStateText: {
+        color: 'white',
+        fontSize: 18,
+        fontWeight: '600',
+        marginBottom: 8,
+    },
+    emptyStateSubtext: {
+        color: 'rgba(255, 255, 255, 0.7)',
+        fontSize: 14,
     },
 });
 

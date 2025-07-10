@@ -18,7 +18,15 @@ import QuizWithFirebase from './components/PersonalityQuiz';
 import LifestyleQuizWithFirebase from './components/LifestyleQuiz';
 import MessagesScreen from './screens/MessagesScreen';
 import ChatRoom from './screens/ChatRoom';
+
 import AddBookScreen from './components/AddBookScreen';
+import AddBookScreen from './components/AddBookScreen'
+import AddMovieScreen from './components/AddMovieScreen';
+import AddDestinationScreen from './components/AddDestinationScreen';
+import AddFoodieSpotScreen from './components/AddFoodieSpot';
+import AddTVShowScreen from './components/AddTVShowScreen';
+import AddFitnessGoalScreen from './components/AddFitnessGoalScreen';
+
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -111,6 +119,51 @@ function AppNavigator() {
         }}
       />
 
+      <Stack.Screen
+        name="AddMovie"
+        component={AddMovieScreen}
+        options={{ 
+          headerShown: false, 
+          presentation: 'modal',
+          animationTypeForReplace: 'push'
+        }}
+      />
+      <Stack.Screen
+        name="AddDestination"
+        component={AddDestinationScreen}
+        options={{ 
+          headerShown: false, 
+          presentation: 'modal',
+          animationTypeForReplace: 'push'
+        }}
+      />
+      <Stack.Screen
+        name="AddFoodieSpot"
+        component={AddFoodieSpotScreen}
+        options={{ 
+          headerShown: false, 
+          presentation: 'modal',
+          animationTypeForReplace: 'push'
+        }}
+      />
+      <Stack.Screen
+        name="AddTVShow"
+        component={AddTVShowScreen}
+        options={{ 
+          headerShown: false, 
+          presentation: 'modal',
+          animationTypeForReplace: 'push'
+        }}
+      />
+      <Stack.Screen
+        name="AddFitnessGoal"
+        component={AddFitnessGoalScreen}
+        options={{ 
+          headerShown: false, 
+          presentation: 'modal',
+          animationTypeForReplace: 'push'
+        }}
+      />
       <Stack.Screen
         name="PersonalityQuiz"
         component={QuizWithFirebase}

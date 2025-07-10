@@ -512,7 +512,9 @@ const getWidgetArrayName = (widgetType) => {
     travel: 'destinations',
     movies: 'movies',
     books: 'books',
-    foodie: 'spots'
+    foodie: 'spots',
+    tvshows: 'shows',
+    fitness: 'goals',
   };
   return arrayNames[widgetType];
 };
@@ -558,7 +560,15 @@ export async function initializeWidgetData(email, widgetType) {
       foodie: {
         spots: [],
         lastUpdated: new Date().toISOString()
-      }
+      },
+      tvshows: {
+        shows: [],
+        lastUpdated: new Date().toISOString()
+     },
+     fitness: {
+        goals: [],
+        lastUpdated: new Date().toISOString()
+     }
     };
 
     const updateField = `widgetData.${widgetType}`;

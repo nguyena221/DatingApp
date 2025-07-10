@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
     StyleSheet, 
     Text, 
@@ -8,24 +8,52 @@ import {
     Modal, 
     Dimensions,
     SafeAreaView,
-    StatusBar 
+    StatusBar,
+    Alert 
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useUser } from '../contexts/UserContext';
+import { useFocusEffect } from '@react-navigation/native';
+import { 
+    getUserWidgetData, 
+    removeWidgetItem, 
+    updateWidgetItem 
+} from '../backend/UserService';
 
 const { width, height } = Dimensions.get('window');
 
-const TravelPinsWidget = () => {
+const TravelPinsWidget = ({ navigation }) => {
     const [isExpanded, setIsExpanded] = useState(false);
-    const [destinations] = useState([
-        { id: 1, name: 'Tokyo', country: 'Japan', emoji: '🗾', visited: false, notes: 'Want to see cherry blossoms and try authentic ramen!' },
-        { id: 2, name: 'Paris', country: 'France', emoji: '🥖', visited: true, notes: 'Amazing museums and food. Eiffel Tower was breathtaking!' },
-        { id: 3, name: 'Bali', country: 'Indonesia', emoji: '🏝️', visited: false, notes: 'Perfect for relaxation and beautiful temples.' },
-        { id: 4, name: 'New York', country: 'USA', emoji: '🗽', visited: true, notes: 'The city that never sleeps! Broadway was incredible.' },
-        { id: 5, name: 'Iceland', country: 'Iceland', emoji: '🏔️', visited: false, notes: 'Northern lights and hot springs are calling my name.' },
-        { id: 6, name: 'Morocco', country: 'Morocco', emoji: '🐪', visited: false, notes: 'Excited to explore the souks in Marrakech.' },
-        { id: 7, name: 'Thailand', country: 'Thailand', emoji: '🏝️', visited: false, notes: 'Beaches, temples, and amazing street food!' },
-        { id: 8, name: 'Greece', country: 'Greece', emoji: '🏛️', visited: true, notes: 'Santorini sunsets were magical. History everywhere!' },
-    ]);
+    const [destinations, setDestinations] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const { user } = useUser();
+
+    // Load destinations from database when component mounts or regains focus
+    useFocusEffect(
+        useCallback(() => {
+            loadDestinationsFromDatabase();
+        }, [])
+    );
+
+    const loadDestinationsFromDatabase = async () => {
+        try {
+            setLoading(true);
+            const userEmail = user?.email || "test2@example.com";
+            const result = await getUserWidgetData(userEmail, 'travel');
+            
+            if (result.success && result.data) {
+                setDestinations(result.data.destinations || []);
+            } else {
+                console.log("No travel data found, starting with empty array");
+                setDestinations([]);
+            }
+        } catch (error) {
+            console.error("Error loading destinations:", error);
+            setDestinations([]);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const wishlistCount = destinations.filter(d => !d.visited).length;
     const visitedCount = destinations.filter(d => d.visited).length;
@@ -38,9 +66,90 @@ const TravelPinsWidget = () => {
         setIsExpanded(false);
     };
 
+    // Navigate to AddDestination screen
+    const handleAddDestination = () => {
+        console.log('✈️ Navigating to AddDestination screen');
+        console.log('✈️ Navigation object:', navigation);
+        
+        // Close the expanded modal first
+        setIsExpanded(false);
+        
+        // Then navigate after a small delay to ensure modal is closed
+        setTimeout(() => {
+            if (navigation && navigation.navigate) {
+                navigation.navigate('AddDestination');
+            } else {
+                console.error('❌ Navigation not available');
+                Alert.alert('Error', 'Navigation not available. Please try again.');
+            }
+        }, 300);
+    };
+
+    const handleRemoveDestination = async (destinationId) => {
+        console.log('🗑️ handleRemoveDestination called with destinationId:', destinationId);
+        
+        Alert.alert(
+            'Remove Destination',
+            'Are you sure you want to remove this destination from your travel list?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                { 
+                    text: 'Remove', 
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            console.log('🗑️ User confirmed deletion');
+                            const userEmail = user?.email || "test2@example.com";
+                            console.log('🗑️ Removing destination from database for user:', userEmail);
+                            
+                            const result = await removeWidgetItem(userEmail, 'travel', destinationId);
+                            console.log('🗑️ Database result:', result);
+                            
+                            if (result.success) {
+                                console.log('✅ Destination removed from database, updating local state');
+                                setDestinations(prevDestinations => {
+                                    const updatedDestinations = prevDestinations.filter(destination => destination.id !== destinationId);
+                                    console.log('✅ Updated destinations array:', updatedDestinations);
+                                    return updatedDestinations;
+                                });
+                                Alert.alert('Success', 'Destination removed successfully!');
+                            } else {
+                                console.log('❌ Database removal failed:', result.message);
+                                Alert.alert('Error', result.message || 'Failed to remove destination');
+                            }
+                        } catch (error) {
+                            console.error("❌ Error removing destination:", error);
+                            Alert.alert('Error', 'Failed to remove destination');
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleToggleVisited = async (destinationId, currentVisited) => {
+        try {
+            const userEmail = user?.email || "test2@example.com";
+            const result = await updateWidgetItem(userEmail, 'travel', destinationId, { visited: !currentVisited });
+            
+            if (result.success) {
+                setDestinations(prevDestinations => 
+                    prevDestinations.map(destination => 
+                        destination.id === destinationId ? { ...destination, visited: !currentVisited } : destination
+                    )
+                );
+            } else {
+                Alert.alert('Error', result.message || 'Failed to update destination');
+            }
+        } catch (error) {
+            console.error("Error updating destination:", error);
+            Alert.alert('Error', 'Failed to update destination');
+        }
+    };
+
     // Compact Widget View
     const CompactWidget = () => (
-        <TouchableOpacity onPress={openExpanded} style={styles.widgetContainer}>
+        <TouchableOpacity onPress={openExpanded} style={styles.widgetContainer} activeOpacity={0.8}>
             <LinearGradient
                 colors={['#667eea', '#764ba2']}
                 style={styles.container}
@@ -55,30 +164,36 @@ const TravelPinsWidget = () => {
                     </View>
                 </View>
 
-                <ScrollView style={styles.destinationsList} showsVerticalScrollIndicator={false}>
-                    {destinations.slice(0, 4).map((destination) => (
-                        <View key={destination.id} style={styles.destinationItem}>
-                            <View style={styles.destinationLeft}>
-                                <Text style={styles.emoji}>{destination.emoji}</Text>
-                                <View style={styles.destinationInfo}>
-                                    <Text style={styles.destinationName}>{destination.name}</Text>
-                                    <Text style={styles.destinationCountry}>{destination.country}</Text>
+                {loading ? (
+                    <View style={styles.loadingContainer}>
+                        <Text style={styles.loadingText}>Loading destinations...</Text>
+                    </View>
+                ) : (
+                    <ScrollView style={styles.destinationsList} showsVerticalScrollIndicator={false}>
+                        {destinations.slice(0, 4).map((destination) => (
+                            <View key={destination.id} style={styles.destinationItem}>
+                                <View style={styles.destinationLeft}>
+                                    <Text style={styles.emoji}>{destination.emoji}</Text>
+                                    <View style={styles.destinationInfo}>
+                                        <Text style={styles.destinationName}>{destination.name}</Text>
+                                        <Text style={styles.destinationCountry}>{destination.country}</Text>
+                                    </View>
+                                </View>
+                                <View style={[
+                                    styles.statusBadge, 
+                                    destination.visited ? styles.visitedBadge : styles.wishlistBadge
+                                ]}>
+                                    <Text style={[
+                                        styles.statusText,
+                                        destination.visited ? styles.visitedText : styles.wishlistText
+                                    ]}>
+                                        {destination.visited ? '✓' : '♡'}
+                                    </Text>
                                 </View>
                             </View>
-                            <View style={[
-                                styles.statusBadge, 
-                                destination.visited ? styles.visitedBadge : styles.wishlistBadge
-                            ]}>
-                                <Text style={[
-                                    styles.statusText,
-                                    destination.visited ? styles.visitedText : styles.wishlistText
-                                ]}>
-                                    {destination.visited ? '✓' : '♡'}
-                                </Text>
-                            </View>
-                        </View>
-                    ))}
-                </ScrollView>
+                        ))}
+                    </ScrollView>
+                )}
 
                 <View style={styles.expandHint}>
                     <Text style={styles.expandHintText}>Tap to see all {destinations.length} destinations</Text>
@@ -92,7 +207,7 @@ const TravelPinsWidget = () => {
         <Modal
             visible={isExpanded}
             animationType="slide"
-            presentationStyle="pageSheet"
+            presentationStyle="fullScreen"
             onRequestClose={closeExpanded}
         >
             <StatusBar barStyle="light-content" backgroundColor="#667eea" />
@@ -105,7 +220,7 @@ const TravelPinsWidget = () => {
                 <SafeAreaView style={styles.expandedSafeArea}>
                     {/* Header */}
                     <View style={styles.expandedHeader}>
-                        <TouchableOpacity onPress={closeExpanded} style={styles.closeButton}>
+                        <TouchableOpacity onPress={closeExpanded} style={styles.closeButton} activeOpacity={0.7}>
                             <Text style={styles.closeButtonText}>✕</Text>
                         </TouchableOpacity>
                         <Text style={styles.expandedTitle}>✈️ My Travel Dreams</Text>
@@ -129,38 +244,80 @@ const TravelPinsWidget = () => {
                     </View>
 
                     {/* Destinations List */}
-                    <ScrollView style={styles.expandedDestinationsList} showsVerticalScrollIndicator={false}>
-                        {destinations.map((destination) => (
-                            <TouchableOpacity key={destination.id} style={styles.expandedDestinationItem}>
-                                <View style={styles.expandedDestinationHeader}>
-                                    <View style={styles.destinationLeft}>
-                                        <Text style={styles.expandedEmoji}>{destination.emoji}</Text>
-                                        <View style={styles.destinationInfo}>
-                                            <Text style={styles.expandedDestinationName}>{destination.name}</Text>
-                                            <Text style={styles.expandedDestinationCountry}>{destination.country}</Text>
+                    <ScrollView 
+                        style={styles.expandedDestinationsList} 
+                        showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
+                    >
+                        {destinations.length === 0 ? (
+                            <View style={styles.emptyState}>
+                                <Text style={styles.emptyStateText}>No destinations added yet!</Text>
+                                <Text style={styles.emptyStateSubtext}>Add your first travel destination to get started</Text>
+                            </View>
+                        ) : (
+                            destinations.map((destination) => (
+                                <View key={destination.id} style={styles.swipeableContainer}>
+                                    <TouchableOpacity 
+                                        style={styles.expandedDestinationItem}
+                                        activeOpacity={0.7}
+                                    >
+                                        <View style={styles.expandedDestinationHeader}>
+                                            <View style={styles.destinationLeft}>
+                                                <Text style={styles.expandedEmoji}>{destination.emoji}</Text>
+                                                <View style={styles.destinationInfo}>
+                                                    <Text style={styles.expandedDestinationName}>{destination.name}</Text>
+                                                    <Text style={styles.expandedDestinationCountry}>{destination.country}</Text>
+                                                </View>
+                                            </View>
+                                            <View style={styles.destinationActions}>
+                                                {/* Toggle Visited Status */}
+                                                <TouchableOpacity
+                                                    style={[
+                                                        styles.toggleButton,
+                                                        destination.visited ? styles.visitedBadge : styles.wishlistBadge
+                                                    ]}
+                                                    onPress={() => {
+                                                        console.log('🔄 Toggle visited status for destination:', destination.id, destination.name);
+                                                        handleToggleVisited(destination.id, destination.visited);
+                                                    }}
+                                                    activeOpacity={0.7}
+                                                >
+                                                    <Text style={[
+                                                        styles.toggleButtonText,
+                                                        destination.visited ? styles.visitedText : styles.wishlistText
+                                                    ]}>
+                                                        {destination.visited ? '✓' : '♡'}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                                
+                                                {/* Delete Button */}
+                                                <TouchableOpacity
+                                                    style={styles.deleteIconButton}
+                                                    onPress={() => {
+                                                        console.log('🗑️ Delete button pressed for destination:', destination.id, destination.name);
+                                                        handleRemoveDestination(destination.id);
+                                                    }}
+                                                    activeOpacity={0.7}
+                                                >
+                                                    <Text style={styles.deleteIconText}>🗑️</Text>
+                                                </TouchableOpacity>
+                                            </View>
                                         </View>
-                                    </View>
-                                    <View style={[
-                                        styles.expandedStatusBadge, 
-                                        destination.visited ? styles.visitedBadge : styles.wishlistBadge
-                                    ]}>
-                                        <Text style={[
-                                            styles.expandedStatusText,
-                                            destination.visited ? styles.visitedText : styles.wishlistText
-                                        ]}>
-                                            {destination.visited ? '✓' : '♡'}
-                                        </Text>
-                                    </View>
+                                        {destination.notes && (
+                                            <Text style={styles.destinationNotes}>{destination.notes}</Text>
+                                        )}
+                                    </TouchableOpacity>
                                 </View>
-                                {destination.notes && (
-                                    <Text style={styles.destinationNotes}>{destination.notes}</Text>
-                                )}
-                            </TouchableOpacity>
-                        ))}
+                            ))
+                        )}
                     </ScrollView>
 
                     {/* Add Button */}
-                    <TouchableOpacity style={styles.expandedAddButton}>
+                    <TouchableOpacity 
+                        style={styles.expandedAddButton}
+                        onPress={handleAddDestination}
+                        activeOpacity={0.8}
+                    >
                         <Text style={styles.expandedAddButtonText}>+ Add New Destination</Text>
                     </TouchableOpacity>
                 </SafeAreaView>
@@ -281,6 +438,17 @@ const styles = StyleSheet.create({
         fontStyle: 'italic',
     },
 
+    // Loading state
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    loadingText: {
+        color: 'rgba(255, 255, 255, 0.8)',
+        fontSize: 14,
+    },
+
     // Expanded Modal Styles
     expandedContainer: {
         flex: 1,
@@ -343,17 +511,24 @@ const styles = StyleSheet.create({
     expandedDestinationsList: {
         flex: 1,
     },
+    swipeableContainer: {
+        marginBottom: 12,
+    },
     expandedDestinationItem: {
         backgroundColor: 'rgba(255, 255, 255, 0.15)',
         borderRadius: 12,
         padding: 16,
-        marginBottom: 12,
     },
     expandedDestinationHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: 8,
+    },
+    destinationActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
     },
     expandedEmoji: {
         fontSize: 24,
@@ -369,16 +544,29 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: 'rgba(255, 255, 255, 0.7)',
     },
-    expandedStatusBadge: {
-        width: 28,
-        height: 28,
-        borderRadius: 14,
+    toggleButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
         justifyContent: 'center',
         alignItems: 'center',
     },
-    expandedStatusText: {
-        fontSize: 16,
+    toggleButtonText: {
+        fontSize: 18,
         fontWeight: 'bold',
+    },
+    deleteIconButton: {
+        backgroundColor: 'rgba(255, 71, 87, 0.2)',
+        borderRadius: 20,
+        width: 36,
+        height: 36,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 71, 87, 0.4)',
+    },
+    deleteIconText: {
+        fontSize: 16,
     },
     destinationNotes: {
         fontSize: 14,
@@ -399,6 +587,22 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
         textAlign: 'center',
+    },
+    
+    // Empty state
+    emptyState: {
+        alignItems: 'center',
+        paddingVertical: 40,
+    },
+    emptyStateText: {
+        color: 'white',
+        fontSize: 18,
+        fontWeight: '600',
+        marginBottom: 8,
+    },
+    emptyStateSubtext: {
+        color: 'rgba(255, 255, 255, 0.7)',
+        fontSize: 14,
     },
 });
 
