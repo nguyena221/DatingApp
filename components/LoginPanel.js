@@ -8,6 +8,7 @@ import {
   View,
   Modal,
   Alert,
+  ScrollView,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import styles from "../styles/LoginScreenStyle";
@@ -24,6 +25,10 @@ export default function LoginPanel({
   setLastName,
   birthday,
   setBirthday,
+  gender,
+  setGender,
+  sexualOrientation,
+  setSexualOrientation,
   passwordError,
 }) {
   const heightAnim = useRef(new Animated.Value(isLogin ? 180 : 360)).current;
@@ -41,8 +46,9 @@ export default function LoginPanel({
   }, [passwordError]);
 
   useEffect(() => {
+    // Increased height to accommodate new selection options
     Animated.timing(heightAnim, {
-      toValue: isLogin ? 130 : 330,
+      toValue: isLogin ? 130 : 530, // Increased from 430 to 530
       duration: 300,
       useNativeDriver: false,
     }).start();
@@ -75,27 +81,53 @@ export default function LoginPanel({
 
   return (
     <Animated.View style={[styles.loginPanelContainer, { height: heightAnim }]}>
-      <TextInput
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        style={styles.input}
-      />
-      <TextInput
-        placeholder="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        style={styles.input}
-      />
-
-      {!isLogin && (
+      {isLogin ? (
+        // Login form - no scroll needed
         <>
+          <TextInput
+            placeholder="Email"
+            value={email}
+            onChangeText={setEmail}
+            style={styles.input}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+          <TextInput
+            placeholder="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            style={styles.input}
+          />
+        </>
+      ) : (
+        // Registration form - with scroll
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: 10 }}
+        >
+          <TextInput
+            placeholder="Email"
+            value={email}
+            onChangeText={setEmail}
+            style={styles.input}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+          <TextInput
+            placeholder="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            style={styles.input}
+          />
           <TextInput
             placeholder="First Name"
             value={firstName}
             onChangeText={setFirstName}
             style={styles.input}
+            autoCapitalize="words"
           />
           <TextInput
             placeholder="Last Name"
@@ -103,6 +135,7 @@ export default function LoginPanel({
             onChangeText={setLastName}
             style={styles.input}
             maxLength={20}
+            autoCapitalize="words"
           />
 
           <TouchableOpacity
@@ -121,7 +154,55 @@ export default function LoginPanel({
               {birthday || "Select Birth Date"}
             </Text>
           </TouchableOpacity>
-        </>
+
+          {/* Gender Selection */}
+          <View style={styles.selectionContainer}>
+            <Text style={styles.selectionLabel}>Gender</Text>
+            <View style={styles.optionsContainer}>
+              {['Male', 'Female', 'Other'].map((option) => (
+                <TouchableOpacity
+                  key={option}
+                  style={[
+                    styles.optionButton,
+                    gender === option && styles.optionButtonSelected
+                  ]}
+                  onPress={() => setGender(option)}
+                >
+                  <Text style={[
+                    styles.optionText,
+                    gender === option && styles.optionTextSelected
+                  ]}>
+                    {option}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Sexual Orientation Selection */}
+          <View style={styles.selectionContainer}>
+            <Text style={styles.selectionLabel}>Sexual Orientation</Text>
+            <View style={styles.optionsContainer}>
+              {['Straight', 'Gay', 'Bisexual', 'Other'].map((option) => (
+                <TouchableOpacity
+                  key={option}
+                  style={[
+                    styles.optionButton,
+                    sexualOrientation === option && styles.optionButtonSelected
+                  ]}
+                  onPress={() => setSexualOrientation(option)}
+                >
+                  <Text style={[
+                    styles.optionText,
+                    sexualOrientation === option && styles.optionTextSelected
+                  ]}>
+                    {option}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </ScrollView>
       )}
 
       <Modal

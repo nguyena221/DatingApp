@@ -8,6 +8,8 @@ export const UseLoginHandlers = ({
   firstN,
   lastN,
   birthDate,
+  gender,
+  sexualOrientation,
   setLoginStatus,
   login,
   setPasswordError,
@@ -62,6 +64,8 @@ export const UseLoginHandlers = ({
         firstName: firstN,
         lastName: lastN,
         birthDate,
+        gender,
+        sexualOrientation,
       };
 
       await storeUser(user); // will throw if email exists

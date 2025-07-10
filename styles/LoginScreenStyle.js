@@ -83,6 +83,43 @@ const styles = StyleSheet.create({
     textDecorationLine: "underline",
     fontSize: 14,
   },
+  selectionContainer: {
+  marginBottom: 20,
+},
+selectionLabel: {
+  fontSize: 16,
+  fontWeight: '600',
+  color: '#333',
+  marginBottom: 12,
+  marginLeft: 4,
+},
+optionsContainer: {
+  flexDirection: 'row',
+  flexWrap: 'wrap',
+  gap: 8,
+},
+optionButton: {
+  paddingVertical: 12,
+  paddingHorizontal: 20,
+  borderRadius: 25,
+  borderWidth: 2,
+  borderColor: '#e0e0e0',
+  backgroundColor: '#ffffff',
+  minWidth: 80,
+  alignItems: 'center',
+},
+optionButtonSelected: {
+  borderColor: '#667eea',
+  backgroundColor: '#667eea',
+},
+optionText: {
+  fontSize: 14,
+  fontWeight: '600',
+  color: '#666',
+},
+optionTextSelected: {
+  color: '#ffffff',
+},
 });
 
 export default styles;

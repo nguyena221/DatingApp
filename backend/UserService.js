@@ -34,6 +34,8 @@ export async function storeUser(user) {
     firstName: user.firstName,
     lastName: user.lastName,
     birthDate: user.birthDate,
+    gender: user.gender,
+    sexualOrientation: user.sexualOrientation,
   });
 }
 
