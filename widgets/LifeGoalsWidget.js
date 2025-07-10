@@ -22,7 +22,7 @@ import {
 
 const { width, height } = Dimensions.get('window');
 
-const LifeGoalsWidget = ({ navigation }) => {
+const LifeGoalsWidget = ({ navigation, userData, viewOnly = false }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [lifeGoals, setLifeGoals] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -32,27 +32,35 @@ const LifeGoalsWidget = ({ navigation }) => {
     useFocusEffect(
         useCallback(() => {
             loadGoalsFromDatabase();
-        }, [])
+        }, [userData, viewOnly])
     );
 
     const loadGoalsFromDatabase = async () => {
         try {
             setLoading(true);
-            const userEmail = user?.email;
-            if (!userEmail) {
-                console.log("No user logged in");
-                setLifeGoals([]);
-                setLoading(false);
-                return;
-            }
             
-            const result = await getUserWidgetData(userEmail, 'lifegoals');
-            
-            if (result.success && result.data) {
-                setLifeGoals(result.data.goals || []);
+            if (viewOnly && userData) {
+                // For viewing other users, use the data passed in userData
+                const goalsData = userData.widgetData?.lifegoals?.goals || [];
+                setLifeGoals(goalsData);
             } else {
-                console.log("No life goals data found, starting with empty array");
-                setLifeGoals([]);
+                // For own profile, fetch from database as usual
+                const userEmail = user?.email;
+                if (!userEmail) {
+                    console.log("No user logged in");
+                    setLifeGoals([]);
+                    setLoading(false);
+                    return;
+                }
+                
+                const result = await getUserWidgetData(userEmail, 'lifegoals');
+                
+                if (result.success && result.data) {
+                    setLifeGoals(result.data.goals || []);
+                } else {
+                    console.log("No life goals data found, starting with empty array");
+                    setLifeGoals([]);
+                }
             }
         } catch (error) {
             console.error("Error loading life goals:", error);
@@ -74,8 +82,10 @@ const LifeGoalsWidget = ({ navigation }) => {
         setIsExpanded(false);
     };
 
-    // Navigate to AddLifeGoal screen
+    // Navigate to AddLifeGoal screen (only for own profile)
     const handleAddGoal = () => {
+        if (viewOnly) return; // Don't allow adding for other users
+        
         console.log('🎯 Navigating to AddLifeGoal screen');
         console.log('🎯 Navigation object:', navigation);
         
@@ -94,6 +104,8 @@ const LifeGoalsWidget = ({ navigation }) => {
     };
 
     const handleRemoveGoal = async (goalId) => {
+        if (viewOnly) return; // Don't allow removing for other users
+        
         console.log('🗑️ handleRemoveGoal called with goalId:', goalId);
         
         Alert.alert(
@@ -141,6 +153,8 @@ const LifeGoalsWidget = ({ navigation }) => {
     };
 
     const handleUpdateGoalStatus = async (goalId, newStatus) => {
+        if (viewOnly) return; // Don't allow editing for other users
+        
         try {
             const userEmail = user?.email;
             if (!userEmail) {
@@ -223,6 +237,23 @@ const LifeGoalsWidget = ({ navigation }) => {
         }
     };
 
+    // Get the title based on viewOnly mode
+    const getTitle = () => {
+        if (viewOnly && userData) {
+            const name = userData.firstName || 'User';
+            return `🎯 Personal Goals`;
+        }
+        return '🎯 Life Goals';
+    };
+
+    const getExpandedTitle = () => {
+        if (viewOnly && userData) {
+            const name = userData.firstName || 'User';
+            return `🎯 ${name}'s Life Vision`;
+        }
+        return '🎯 My Life Vision';
+    };
+
     // Compact Widget View
     const CompactWidget = () => (
         <TouchableOpacity onPress={openExpanded} style={styles.widgetContainer} activeOpacity={0.8}>
@@ -233,7 +264,7 @@ const LifeGoalsWidget = ({ navigation }) => {
                 end={{ x: 1, y: 1 }}
             >
                 <View style={styles.header}>
-                    <Text style={styles.title}>🎯 Life Goals</Text>
+                    <Text style={styles.title}>{getTitle()}</Text>
                     <View style={styles.statsRow}>
                         <Text style={styles.stat}>{completedGoals.length} achieved</Text>
                         <Text style={styles.stat}>{activeGoals.length} active</Text>
@@ -292,7 +323,7 @@ const LifeGoalsWidget = ({ navigation }) => {
                         <TouchableOpacity onPress={closeExpanded} style={styles.closeButton} activeOpacity={0.7}>
                             <Text style={styles.closeButtonText}>✕</Text>
                         </TouchableOpacity>
-                        <Text style={styles.expandedTitle}>🎯 My Life Vision</Text>
+                        <Text style={styles.expandedTitle}>{getExpandedTitle()}</Text>
                         <View style={styles.placeholder} />
                     </View>
 
@@ -335,8 +366,15 @@ const LifeGoalsWidget = ({ navigation }) => {
                     >
                         {lifeGoals.length === 0 ? (
                             <View style={styles.emptyState}>
-                                <Text style={styles.emptyStateText}>No life goals yet!</Text>
-                                <Text style={styles.emptyStateSubtext}>Add your first life goal to get started</Text>
+                                <Text style={styles.emptyStateText}>
+                                    {viewOnly ? 'No life goals yet!' : 'No life goals yet!'}
+                                </Text>
+                                <Text style={styles.emptyStateSubtext}>
+                                    {viewOnly 
+                                        ? 'This user hasn\'t added any life goals yet' 
+                                        : 'Add your first life goal to get started'
+                                    }
+                                </Text>
                             </View>
                         ) : (
                             lifeGoals.map((goal) => (
@@ -361,32 +399,36 @@ const LifeGoalsWidget = ({ navigation }) => {
                                                     </View>
                                                 </View>
                                             </View>
-                                            <View style={styles.goalActions}>
-                                                {/* Status Toggle Button */}
-                                                <TouchableOpacity
-                                                    style={styles.statusToggleButton}
-                                                    onPress={() => {
-                                                        const newStatus = goal.status === 'achieved' ? 'in-progress' : 'achieved';
-                                                        handleUpdateGoalStatus(goal.id, newStatus);
-                                                    }}
-                                                    activeOpacity={0.7}
-                                                >
-                                                    <Text style={styles.statusToggleText}>
-                                                        {goal.status === 'achieved' ? '↶' : '✓'}
-                                                    </Text>
-                                                </TouchableOpacity>
-                                                {/* Delete Button */}
-                                                <TouchableOpacity
-                                                    style={styles.deleteIconButton}
-                                                    onPress={() => {
-                                                        console.log('🗑️ Delete button pressed for goal:', goal.id, goal.title);
-                                                        handleRemoveGoal(goal.id);
-                                                    }}
-                                                    activeOpacity={0.7}
-                                                >
-                                                    <Text style={styles.deleteIconText}>🗑️</Text>
-                                                </TouchableOpacity>
-                                            </View>
+                                            
+                                            {/* Only show action buttons if not in viewOnly mode */}
+                                            {!viewOnly && (
+                                                <View style={styles.goalActions}>
+                                                    {/* Status Toggle Button */}
+                                                    <TouchableOpacity
+                                                        style={styles.statusToggleButton}
+                                                        onPress={() => {
+                                                            const newStatus = goal.status === 'achieved' ? 'in-progress' : 'achieved';
+                                                            handleUpdateGoalStatus(goal.id, newStatus);
+                                                        }}
+                                                        activeOpacity={0.7}
+                                                    >
+                                                        <Text style={styles.statusToggleText}>
+                                                            {goal.status === 'achieved' ? '↶' : '✓'}
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                    {/* Delete Button */}
+                                                    <TouchableOpacity
+                                                        style={styles.deleteIconButton}
+                                                        onPress={() => {
+                                                            console.log('🗑️ Delete button pressed for goal:', goal.id, goal.title);
+                                                            handleRemoveGoal(goal.id);
+                                                        }}
+                                                        activeOpacity={0.7}
+                                                    >
+                                                        <Text style={styles.deleteIconText}>🗑️</Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                            )}
                                         </View>
                                         
                                         {goal.description && (
@@ -404,14 +446,16 @@ const LifeGoalsWidget = ({ navigation }) => {
                         )}
                     </ScrollView>
 
-                    {/* Add Button */}
-                    <TouchableOpacity 
-                        style={styles.expandedAddButton}
-                        onPress={handleAddGoal}
-                        activeOpacity={0.8}
-                    >
-                        <Text style={styles.expandedAddButtonText}>+ Add New Goal</Text>
-                    </TouchableOpacity>
+                    {/* Add Button - Only show if not in viewOnly mode */}
+                    {!viewOnly && (
+                        <TouchableOpacity 
+                            style={styles.expandedAddButton}
+                            onPress={handleAddGoal}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={styles.expandedAddButtonText}>+ Add New Goal</Text>
+                        </TouchableOpacity>
+                    )}
                 </SafeAreaView>
             </LinearGradient>
         </Modal>

@@ -24,7 +24,7 @@ import AddMovieScreen from '../components/AddMovieScreen';
 
 const { width, height } = Dimensions.get('window');
 
-const FavoriteMoviesWidget = ({ navigation }) => {
+const FavoriteMoviesWidget = ({ navigation, userData, viewOnly = false }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [movies, setMovies] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -34,20 +34,28 @@ const FavoriteMoviesWidget = ({ navigation }) => {
     useFocusEffect(
         useCallback(() => {
             loadMoviesFromDatabase();
-        }, [])
+        }, [userData, viewOnly])
     );
 
     const loadMoviesFromDatabase = async () => {
         try {
             setLoading(true);
-            const userEmail = user?.email || "test2@example.com";
-            const result = await getUserWidgetData(userEmail, 'movies');
             
-            if (result.success && result.data) {
-                setMovies(result.data.movies || []);
+            if (viewOnly && userData) {
+                // For viewing other users, use the data passed in userData
+                const moviesData = userData.widgetData?.movies?.movies || [];
+                setMovies(moviesData);
             } else {
-                console.log("No movies data found, starting with empty array");
-                setMovies([]);
+                // For own profile, fetch from database as usual
+                const userEmail = user?.email || "test2@example.com";
+                const result = await getUserWidgetData(userEmail, 'movies');
+                
+                if (result.success && result.data) {
+                    setMovies(result.data.movies || []);
+                } else {
+                    console.log("No movies data found, starting with empty array");
+                    setMovies([]);
+                }
             }
         } catch (error) {
             console.error("Error loading movies:", error);
@@ -68,8 +76,10 @@ const FavoriteMoviesWidget = ({ navigation }) => {
         setIsExpanded(false);
     };
 
-    // Navigate to AddMovie screen
+    // Navigate to AddMovie screen (only for own profile)
     const handleAddMovie = () => {
+        if (viewOnly) return; // Don't allow adding for other users
+        
         console.log('🎬 Navigating to AddMovie screen');
         console.log('🎬 Navigation object:', navigation);
         
@@ -103,6 +113,8 @@ const FavoriteMoviesWidget = ({ navigation }) => {
     };
 
     const handleRemoveMovie = async (movieId) => {
+        if (viewOnly) return; // Don't allow removing for other users
+        
         console.log('🗑️ handleRemoveMovie called with movieId:', movieId);
         
         Alert.alert(
@@ -145,6 +157,8 @@ const FavoriteMoviesWidget = ({ navigation }) => {
     };
 
     const handleUpdateMovieRating = async (movieId, newRating) => {
+        if (viewOnly) return; // Don't allow editing for other users
+        
         try {
             const userEmail = user?.email || "test2@example.com";
             const result = await updateWidgetItem(userEmail, 'movies', movieId, { rating: newRating });
@@ -165,18 +179,38 @@ const FavoriteMoviesWidget = ({ navigation }) => {
     };
 
     const renderStars = (rating, size = 12, interactive = false, movieId = null) => {
+        // Disable interactivity if in viewOnly mode
+        const isInteractive = interactive && !viewOnly;
+        
         return Array.from({ length: 5 }, (_, i) => (
             <TouchableOpacity
                 key={i}
-                disabled={!interactive}
-                onPress={interactive ? () => handleUpdateMovieRating(movieId, i + 1) : undefined}
-                activeOpacity={interactive ? 0.7 : 1}
+                disabled={!isInteractive}
+                onPress={isInteractive ? () => handleUpdateMovieRating(movieId, i + 1) : undefined}
+                activeOpacity={isInteractive ? 0.7 : 1}
             >
                 <Text style={[styles.star, { fontSize: size }]}>
                     {i < rating ? '★' : '☆'}
                 </Text>
             </TouchableOpacity>
         ));
+    };
+
+    // Get the title based on viewOnly mode
+    const getTitle = () => {
+        if (viewOnly && userData) {
+            const name = userData.firstName || 'User';
+            return `🎬 Movie Taste`;
+        }
+        return '🎬 Movie Taste';
+    };
+
+    const getExpandedTitle = () => {
+        if (viewOnly && userData) {
+            const name = userData.firstName || 'User';
+            return `🎬 ${name}'s Movie Collection`;
+        }
+        return '🎬 My Movie Collection';
     };
 
     // Compact Widget View
@@ -189,7 +223,7 @@ const FavoriteMoviesWidget = ({ navigation }) => {
                 end={{ x: 1, y: 1 }}
             >
                 <View style={styles.header}>
-                    <Text style={styles.title}>🎬 Movie Taste</Text>
+                    <Text style={styles.title}>{getTitle()}</Text>
                     <View style={styles.statsRow}>
                         <Text style={styles.stat}>{movies.length} favorites</Text>
                         <Text style={styles.stat}>★ {averageRating} avg</Text>
@@ -247,7 +281,7 @@ const FavoriteMoviesWidget = ({ navigation }) => {
                         <TouchableOpacity onPress={closeExpanded} style={styles.closeButton} activeOpacity={0.7}>
                             <Text style={styles.closeButtonText}>✕</Text>
                         </TouchableOpacity>
-                        <Text style={styles.expandedTitle}>🎬 My Movie Collection</Text>
+                        <Text style={styles.expandedTitle}>{getExpandedTitle()}</Text>
                         <View style={styles.placeholder} />
                     </View>
 
@@ -289,8 +323,15 @@ const FavoriteMoviesWidget = ({ navigation }) => {
                     >
                         {movies.length === 0 ? (
                             <View style={styles.emptyState}>
-                                <Text style={styles.emptyStateText}>No movies in your collection yet!</Text>
-                                <Text style={styles.emptyStateSubtext}>Add your first movie to get started</Text>
+                                <Text style={styles.emptyStateText}>
+                                    {viewOnly ? 'No movies in collection yet!' : 'No movies in your collection yet!'}
+                                </Text>
+                                <Text style={styles.emptyStateSubtext}>
+                                    {viewOnly 
+                                        ? 'This user hasn\'t added any movies yet' 
+                                        : 'Add your first movie to get started'
+                                    }
+                                </Text>
                             </View>
                         ) : (
                             movies.map((movie) => (
@@ -299,6 +340,7 @@ const FavoriteMoviesWidget = ({ navigation }) => {
                                         style={styles.expandedMovieItem}
                                         onPress={() => openLetterboxdLink(movie.letterboxdUrl)}
                                         activeOpacity={0.7}
+                                        disabled={!movie.letterboxdUrl}
                                     >
                                         <View style={styles.expandedMovieHeader}>
                                             <View style={styles.movieLeft}>
@@ -311,23 +353,27 @@ const FavoriteMoviesWidget = ({ navigation }) => {
                                                     </View>
                                                 </View>
                                             </View>
+                                            
                                             <View style={styles.movieActions}>
                                                 {movie.letterboxdUrl && (
                                                     <View style={styles.letterboxdIcon}>
                                                         <Text style={styles.letterboxdText}>🎬</Text>
                                                     </View>
                                                 )}
-                                                {/* Delete Button */}
-                                                <TouchableOpacity
-                                                    style={styles.deleteIconButton}
-                                                    onPress={() => {
-                                                        console.log('🗑️ Delete button pressed for movie:', movie.id, movie.title);
-                                                        handleRemoveMovie(movie.id);
-                                                    }}
-                                                    activeOpacity={0.7}
-                                                >
-                                                    <Text style={styles.deleteIconText}>🗑️</Text>
-                                                </TouchableOpacity>
+                                                
+                                                {/* Only show delete button if not in viewOnly mode */}
+                                                {!viewOnly && (
+                                                    <TouchableOpacity
+                                                        style={styles.deleteIconButton}
+                                                        onPress={() => {
+                                                            console.log('🗑️ Delete button pressed for movie:', movie.id, movie.title);
+                                                            handleRemoveMovie(movie.id);
+                                                        }}
+                                                        activeOpacity={0.7}
+                                                    >
+                                                        <Text style={styles.deleteIconText}>🗑️</Text>
+                                                    </TouchableOpacity>
+                                                )}
                                             </View>
                                         </View>
                                         {movie.review && (
@@ -339,14 +385,16 @@ const FavoriteMoviesWidget = ({ navigation }) => {
                         )}
                     </ScrollView>
 
-                    {/* Add Button */}
-                    <TouchableOpacity 
-                        style={styles.expandedAddButton}
-                        onPress={handleAddMovie}
-                        activeOpacity={0.8}
-                    >
-                        <Text style={styles.expandedAddButtonText}>+ Add New Movie</Text>
-                    </TouchableOpacity>
+                    {/* Add Button - Only show if not in viewOnly mode */}
+                    {!viewOnly && (
+                        <TouchableOpacity 
+                            style={styles.expandedAddButton}
+                            onPress={handleAddMovie}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={styles.expandedAddButtonText}>+ Add New Movie</Text>
+                        </TouchableOpacity>
+                    )}
                 </SafeAreaView>
             </LinearGradient>
         </Modal>

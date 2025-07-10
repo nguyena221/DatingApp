@@ -18,6 +18,7 @@ import { db } from "../backend/FirebaseConfig";
 import { calculateAge } from "../backend/UserService";
 import { useUser } from "../contexts/UserContext";
 import SettingsPage from "./SettingsPage";
+import ViewUserProfile from "./ViewUserProfile";
 
 const DiscoverStack = createNativeStackNavigator();
 
@@ -70,6 +71,14 @@ function DiscoverMainScreen({ navigation }) {
     }
   };
 
+  const handleProfilePress = () => {
+    if (currentProfile) {
+      navigation.navigate("ViewUserProfile", {
+        userData: currentProfile
+      });
+    }
+  };
+
   const renderProfileCard = () => {
     if (!currentProfile) return null;
 
@@ -86,58 +95,66 @@ function DiscoverMainScreen({ navigation }) {
       const banners = currentProfile.selectedProfileBanners || [];
 
       return (
-        <LinearGradient
-          colors={[bgColor, "#ffffff"]}
-          style={styles.profileCard}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-        >
-          <View style={styles.photoContainer}>
-            <View style={styles.photoFrame}>
-              {currentProfile.profilePhotoURL ? (
-                <Image
-                  source={{ uri: currentProfile.profilePhotoURL }}
-                  style={styles.profilePhoto}
-                />
+        <TouchableOpacity onPress={handleProfilePress} activeOpacity={0.9}>
+          <LinearGradient
+            colors={[bgColor, "#ffffff"]}
+            style={styles.profileCard}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+          >
+            <View style={styles.photoContainer}>
+              <View style={styles.photoFrame}>
+                {currentProfile.profilePhotoURL ? (
+                  <Image
+                    source={{ uri: currentProfile.profilePhotoURL }}
+                    style={styles.profilePhoto}
+                  />
+                ) : (
+                  <View style={styles.placeholderPhoto}>
+                    <Ionicons name="person" size={60} color="#ccc" />
+                  </View>
+                )}
+              </View>
+            </View>
+
+            <View style={styles.infoContainer}>
+              <Text style={styles.nameText}>{name}</Text>
+              <Text style={styles.ageText}>{age}</Text>
+            </View>
+
+            <View style={styles.bannersContainer}>
+              {banners && banners.length > 0 ? (
+                banners.slice(0, 3).map((banner, index) => (
+                  <View key={index} style={styles.bannerRow}>
+                    <Text style={styles.bannerLabel}>
+                      {banner?.label || "Unknown"}
+                    </Text>
+                    <Text style={styles.bannerValue}>
+                      {banner?.value || "N/A"}
+                    </Text>
+                  </View>
+                ))
               ) : (
-                <View style={styles.placeholderPhoto}>
-                  <Ionicons name="person" size={60} color="#ccc" />
+                <View style={styles.noQuizzesContainer}>
+                  <Text style={styles.noQuizzesEmoji}>🎯</Text>
+                  <Text style={styles.noQuizzesText}>
+                    This user hasn't completed any quizzes yet
+                  </Text>
                 </View>
               )}
             </View>
-          </View>
 
-          <View style={styles.infoContainer}>
-            <Text style={styles.nameText}>{name}</Text>
-            <Text style={styles.ageText}>{age}</Text>
-          </View>
-
-          <View style={styles.bannersContainer}>
-            {banners && banners.length > 0 ? (
-              banners.slice(0, 3).map((banner, index) => (
-                <View key={index} style={styles.bannerRow}>
-                  <Text style={styles.bannerLabel}>
-                    {banner?.label || "Unknown"}
-                  </Text>
-                  <Text style={styles.bannerValue}>
-                    {banner?.value || "N/A"}
-                  </Text>
-                </View>
-              ))
-            ) : (
-              <View style={styles.noQuizzesContainer}>
-                <Text style={styles.noQuizzesEmoji}>🎯</Text>
-                <Text style={styles.noQuizzesText}>
-                  This user hasn't completed any quizzes yet
-                </Text>
-              </View>
-            )}
-          </View>
-
-          <TouchableOpacity style={styles.nextButton} onPress={nextProfile}>
-            <Text style={styles.nextButtonText}>Next Profile →</Text>
-          </TouchableOpacity>
-        </LinearGradient>
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity style={styles.viewProfileButton} onPress={handleProfilePress}>
+                <Text style={styles.viewProfileButtonText}>View Profile</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity style={styles.nextButton} onPress={nextProfile}>
+                <Text style={styles.nextButtonText}>Next →</Text>
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
+        </TouchableOpacity>
       );
     } catch (error) {
       console.error("Error rendering profile:", error);
@@ -204,6 +221,14 @@ export default function DiscoverPage() {
           headerTitle: "Settings",
           headerBackTitle: "Back",
           presentation: "modal",
+        }}
+      />
+      <DiscoverStack.Screen
+        name="ViewUserProfile"
+        component={ViewUserProfile}
+        options={{
+          headerShown: false,
+          presentation: "card",
         }}
       />
     </DiscoverStack.Navigator>
@@ -336,13 +361,32 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontStyle: "italic",
   },
-  nextButton: {
+  buttonContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 10,
+    marginTop: 10,
+  },
+  viewProfileButton: {
     backgroundColor: "#007AFF",
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 25,
     alignItems: "center",
-    marginTop: 10,
+    flex: 1,
+  },
+  viewProfileButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  nextButton: {
+    backgroundColor: "#34C759",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    alignItems: "center",
+    flex: 1,
   },
   nextButtonText: {
     color: "white",

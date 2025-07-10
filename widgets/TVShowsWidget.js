@@ -23,7 +23,7 @@ import {
 
 const { width, height } = Dimensions.get('window');
 
-const TVShowsWidget = ({ navigation }) => {
+const TVShowsWidget = ({ navigation, userData, viewOnly = false }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [tvShows, setTVShows] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -33,20 +33,28 @@ const TVShowsWidget = ({ navigation }) => {
     useFocusEffect(
         useCallback(() => {
             loadShowsFromDatabase();
-        }, [])
+        }, [userData, viewOnly])
     );
 
     const loadShowsFromDatabase = async () => {
         try {
             setLoading(true);
-            const userEmail = user?.email || "test2@example.com";
-            const result = await getUserWidgetData(userEmail, 'tvshows');
             
-            if (result.success && result.data) {
-                setTVShows(result.data.shows || []);
+            if (viewOnly && userData) {
+                // For viewing other users, use the data passed in userData
+                const showsData = userData.widgetData?.tvshows?.shows || [];
+                setTVShows(showsData);
             } else {
-                console.log("No TV shows data found, starting with empty array");
-                setTVShows([]);
+                // For own profile, fetch from database as usual
+                const userEmail = user?.email || "test2@example.com";
+                const result = await getUserWidgetData(userEmail, 'tvshows');
+                
+                if (result.success && result.data) {
+                    setTVShows(result.data.shows || []);
+                } else {
+                    console.log("No TV shows data found, starting with empty array");
+                    setTVShows([]);
+                }
             }
         } catch (error) {
             console.error("Error loading TV shows:", error);
@@ -69,8 +77,10 @@ const TVShowsWidget = ({ navigation }) => {
         setIsExpanded(false);
     };
 
-    // Navigate to AddTVShow screen
+    // Navigate to AddTVShow screen (only for own profile)
     const handleAddShow = () => {
+        if (viewOnly) return; // Don't allow adding for other users
+        
         console.log('📺 Navigating to AddTVShow screen');
         console.log('📺 Navigation object:', navigation);
         
@@ -104,6 +114,8 @@ const TVShowsWidget = ({ navigation }) => {
     };
 
     const handleRemoveShow = async (showId) => {
+        if (viewOnly) return; // Don't allow removing for other users
+        
         console.log('🗑️ handleRemoveShow called with showId:', showId);
         
         Alert.alert(
@@ -146,6 +158,8 @@ const TVShowsWidget = ({ navigation }) => {
     };
 
     const handleUpdateShowRating = async (showId, newRating) => {
+        if (viewOnly) return; // Don't allow editing for other users
+        
         try {
             const userEmail = user?.email || "test2@example.com";
             const result = await updateWidgetItem(userEmail, 'tvshows', showId, { rating: newRating });
@@ -166,12 +180,15 @@ const TVShowsWidget = ({ navigation }) => {
     };
 
     const renderStars = (rating, size = 12, interactive = false, showId = null) => {
+        // Disable interactivity if in viewOnly mode
+        const isInteractive = interactive && !viewOnly;
+        
         return Array.from({ length: 5 }, (_, i) => (
             <TouchableOpacity
                 key={i}
-                disabled={!interactive}
-                onPress={interactive ? () => handleUpdateShowRating(showId, i + 1) : undefined}
-                activeOpacity={interactive ? 0.7 : 1}
+                disabled={!isInteractive}
+                onPress={isInteractive ? () => handleUpdateShowRating(showId, i + 1) : undefined}
+                activeOpacity={isInteractive ? 0.7 : 1}
             >
                 <Text style={[styles.star, { fontSize: size }]}>
                     {i < rating ? '★' : '☆'}
@@ -198,6 +215,23 @@ const TVShowsWidget = ({ navigation }) => {
         }
     };
 
+    // Get the title based on viewOnly mode
+    const getTitle = () => {
+        if (viewOnly && userData) {
+            const name = userData.firstName || 'User';
+            return `📺 Fave' Shows`;
+        }
+        return '📺 TV Shows';
+    };
+
+    const getExpandedTitle = () => {
+        if (viewOnly && userData) {
+            const name = userData.firstName || 'User';
+            return `📺 ${name}'s TV Collection`;
+        }
+        return '📺 My TV Collection';
+    };
+
     // Compact Widget View
     const CompactWidget = () => (
         <TouchableOpacity onPress={openExpanded} style={styles.widgetContainer} activeOpacity={0.8}>
@@ -208,7 +242,7 @@ const TVShowsWidget = ({ navigation }) => {
                 end={{ x: 1, y: 1 }}
             >
                 <View style={styles.header}>
-                    <Text style={styles.title}>📺 TV Shows</Text>
+                    <Text style={styles.title}>{getTitle()}</Text>
                     <View style={styles.statsRow}>
                         <Text style={styles.stat}>{watchedShows.length} watched</Text>
                         <Text style={styles.stat}>★ {averageRating} avg</Text>
@@ -271,7 +305,7 @@ const TVShowsWidget = ({ navigation }) => {
                         <TouchableOpacity onPress={closeExpanded} style={styles.closeButton} activeOpacity={0.7}>
                             <Text style={styles.closeButtonText}>✕</Text>
                         </TouchableOpacity>
-                        <Text style={styles.expandedTitle}>📺 My TV Collection</Text>
+                        <Text style={styles.expandedTitle}>{getExpandedTitle()}</Text>
                         <View style={styles.placeholder} />
                     </View>
 
@@ -313,8 +347,15 @@ const TVShowsWidget = ({ navigation }) => {
                     >
                         {tvShows.length === 0 ? (
                             <View style={styles.emptyState}>
-                                <Text style={styles.emptyStateText}>No shows in your collection yet!</Text>
-                                <Text style={styles.emptyStateSubtext}>Add your first TV show to get started</Text>
+                                <Text style={styles.emptyStateText}>
+                                    {viewOnly ? 'No shows in collection yet!' : 'No shows in your collection yet!'}
+                                </Text>
+                                <Text style={styles.emptyStateSubtext}>
+                                    {viewOnly 
+                                        ? 'This user hasn\'t added any TV shows yet' 
+                                        : 'Add your first TV show to get started'
+                                    }
+                                </Text>
                             </View>
                         ) : (
                             tvShows.map((show) => (
@@ -323,6 +364,7 @@ const TVShowsWidget = ({ navigation }) => {
                                         style={styles.expandedShowItem}
                                         onPress={() => openStreamingLink(show.streamingUrl)}
                                         activeOpacity={0.7}
+                                        disabled={!show.streamingUrl}
                                     >
                                         <View style={styles.expandedShowHeader}>
                                             <View style={styles.showLeft}>
@@ -342,23 +384,27 @@ const TVShowsWidget = ({ navigation }) => {
                                                     </View>
                                                 </View>
                                             </View>
+                                            
                                             <View style={styles.showActions}>
                                                 {show.streamingUrl && (
                                                     <View style={styles.streamingIcon}>
                                                         <Text style={styles.streamingText}>📱</Text>
                                                     </View>
                                                 )}
-                                                {/* Delete Button */}
-                                                <TouchableOpacity
-                                                    style={styles.deleteIconButton}
-                                                    onPress={() => {
-                                                        console.log('🗑️ Delete button pressed for show:', show.id, show.title);
-                                                        handleRemoveShow(show.id);
-                                                    }}
-                                                    activeOpacity={0.7}
-                                                >
-                                                    <Text style={styles.deleteIconText}>🗑️</Text>
-                                                </TouchableOpacity>
+                                                
+                                                {/* Only show delete button if not in viewOnly mode */}
+                                                {!viewOnly && (
+                                                    <TouchableOpacity
+                                                        style={styles.deleteIconButton}
+                                                        onPress={() => {
+                                                            console.log('🗑️ Delete button pressed for show:', show.id, show.title);
+                                                            handleRemoveShow(show.id);
+                                                        }}
+                                                        activeOpacity={0.7}
+                                                    >
+                                                        <Text style={styles.deleteIconText}>🗑️</Text>
+                                                    </TouchableOpacity>
+                                                )}
                                             </View>
                                         </View>
                                         {show.review && (
@@ -370,14 +416,16 @@ const TVShowsWidget = ({ navigation }) => {
                         )}
                     </ScrollView>
 
-                    {/* Add Button */}
-                    <TouchableOpacity 
-                        style={styles.expandedAddButton}
-                        onPress={handleAddShow}
-                        activeOpacity={0.8}
-                    >
-                        <Text style={styles.expandedAddButtonText}>+ Add New Show</Text>
-                    </TouchableOpacity>
+                    {/* Add Button - Only show if not in viewOnly mode */}
+                    {!viewOnly && (
+                        <TouchableOpacity 
+                            style={styles.expandedAddButton}
+                            onPress={handleAddShow}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={styles.expandedAddButtonText}>+ Add New Show</Text>
+                        </TouchableOpacity>
+                    )}
                 </SafeAreaView>
             </LinearGradient>
         </Modal>
