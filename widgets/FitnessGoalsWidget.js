@@ -22,7 +22,7 @@ import {
 
 const { width, height } = Dimensions.get('window');
 
-const FitnessGoalsWidget = ({ navigation }) => {
+const FitnessGoalsWidget = ({ navigation, userData, viewOnly = false }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [fitnessGoals, setFitnessGoals] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -32,27 +32,28 @@ const FitnessGoalsWidget = ({ navigation }) => {
     useFocusEffect(
         useCallback(() => {
             loadGoalsFromDatabase();
-        }, [])
+        }, [userData, viewOnly])
     );
 
     const loadGoalsFromDatabase = async () => {
         try {
             setLoading(true);
-            const userEmail = user?.email;
-            if (!userEmail) {
-                console.log("No user logged in");
-                setFitnessGoals([]);
-                setLoading(false);
-                return;
-            }
             
-            const result = await getUserWidgetData(userEmail, 'fitness');
-            
-            if (result.success && result.data) {
-                setFitnessGoals(result.data.goals || []);
+            if (viewOnly && userData) {
+                // For viewing other users, use the data passed in userData
+                const goalsData = userData.widgetData?.fitness?.goals || [];
+                setFitnessGoals(goalsData);
             } else {
-                console.log("No fitness goals data found, starting with empty array");
-                setFitnessGoals([]);
+                // For own profile, fetch from database as usual
+                const userEmail = user?.email || "test2@example.com";
+                const result = await getUserWidgetData(userEmail, 'fitness');
+                
+                if (result.success && result.data) {
+                    setFitnessGoals(result.data.goals || []);
+                } else {
+                    console.log("No fitness goals data found, starting with empty array");
+                    setFitnessGoals([]);
+                }
             }
         } catch (error) {
             console.error("Error loading fitness goals:", error);
@@ -75,8 +76,10 @@ const FitnessGoalsWidget = ({ navigation }) => {
         setIsExpanded(false);
     };
 
-    // Navigate to AddFitnessGoal screen
+    // Navigate to AddFitnessGoal screen (only for own profile)
     const handleAddGoal = () => {
+        if (viewOnly) return; // Don't allow adding for other users
+        
         console.log('💪 Navigating to AddFitnessGoal screen');
         console.log('💪 Navigation object:', navigation);
         
@@ -95,6 +98,8 @@ const FitnessGoalsWidget = ({ navigation }) => {
     };
 
     const handleRemoveGoal = async (goalId) => {
+        if (viewOnly) return; // Don't allow removing for other users
+        
         console.log('🗑️ handleRemoveGoal called with goalId:', goalId);
         
         Alert.alert(
@@ -142,6 +147,8 @@ const FitnessGoalsWidget = ({ navigation }) => {
     };
 
     const handleUpdateGoalProgress = async (goalId, newProgress) => {
+        if (viewOnly) return; // Don't allow editing for other users
+        
         try {
             const userEmail = user?.email;
             if (!userEmail) {
@@ -203,6 +210,23 @@ const FitnessGoalsWidget = ({ navigation }) => {
         }
     };
 
+    // Get the title based on viewOnly mode
+    const getTitle = () => {
+        if (viewOnly && userData) {
+            const name = userData.firstName || 'User';
+            return `💪 Fitness Goals`;
+        }
+        return '💪 Fitness Goals';
+    };
+
+    const getExpandedTitle = () => {
+        if (viewOnly && userData) {
+            const name = userData.firstName || 'User';
+            return `💪 ${name}'s Fitness Journey`;
+        }
+        return '💪 My Fitness Journey';
+    };
+
     const renderProgressBar = (progress, width = 60) => {
         return (
             <View style={[styles.progressBarContainer, { width }]}>
@@ -230,7 +254,7 @@ const FitnessGoalsWidget = ({ navigation }) => {
                 end={{ x: 1, y: 1 }}
             >
                 <View style={styles.header}>
-                    <Text style={styles.title}>💪 Fitness Goals</Text>
+                    <Text style={styles.title}>{getTitle()}</Text>
                     <View style={styles.statsRow}>
                         <Text style={styles.stat}>{completedGoals.length} done</Text>
                         <Text style={styles.stat}>{averageProgress}% avg</Text>
@@ -289,7 +313,7 @@ const FitnessGoalsWidget = ({ navigation }) => {
                         <TouchableOpacity onPress={closeExpanded} style={styles.closeButton} activeOpacity={0.7}>
                             <Text style={styles.closeButtonText}>✕</Text>
                         </TouchableOpacity>
-                        <Text style={styles.expandedTitle}>💪 My Fitness Journey</Text>
+                        <Text style={styles.expandedTitle}>{getExpandedTitle()}</Text>
                         <View style={styles.placeholder} />
                     </View>
 
@@ -317,8 +341,15 @@ const FitnessGoalsWidget = ({ navigation }) => {
                     >
                         {fitnessGoals.length === 0 ? (
                             <View style={styles.emptyState}>
-                                <Text style={styles.emptyStateText}>No fitness goals yet!</Text>
-                                <Text style={styles.emptyStateSubtext}>Add your first fitness goal to get started</Text>
+                                <Text style={styles.emptyStateText}>
+                                    {viewOnly ? 'No fitness goals yet!' : 'No fitness goals yet!'}
+                                </Text>
+                                <Text style={styles.emptyStateSubtext}>
+                                    {viewOnly 
+                                        ? 'This user hasn\'t added any fitness goals yet' 
+                                        : 'Add your first fitness goal to get started'
+                                    }
+                                </Text>
                             </View>
                         ) : (
                             fitnessGoals.map((goal) => (
@@ -341,39 +372,46 @@ const FitnessGoalsWidget = ({ navigation }) => {
                                                     </View>
                                                 </View>
                                             </View>
-                                            <View style={styles.goalActions}>
-                                                {/* Delete Button */}
-                                                <TouchableOpacity
-                                                    style={styles.deleteIconButton}
-                                                    onPress={() => {
-                                                        console.log('🗑️ Delete button pressed for goal:', goal.id, goal.title);
-                                                        handleRemoveGoal(goal.id);
-                                                    }}
-                                                    activeOpacity={0.7}
-                                                >
-                                                    <Text style={styles.deleteIconText}>🗑️</Text>
-                                                </TouchableOpacity>
-                                            </View>
+                                            
+                                            {/* Only show delete button if not in viewOnly mode */}
+                                            {!viewOnly && (
+                                                <View style={styles.goalActions}>
+                                                    <TouchableOpacity
+                                                        style={styles.deleteIconButton}
+                                                        onPress={() => {
+                                                            console.log('🗑️ Delete button pressed for goal:', goal.id, goal.title);
+                                                            handleRemoveGoal(goal.id);
+                                                        }}
+                                                        activeOpacity={0.7}
+                                                    >
+                                                        <Text style={styles.deleteIconText}>🗑️</Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                            )}
                                         </View>
                                         
                                         {/* Progress Bar */}
                                         <View style={styles.progressSection}>
                                             <Text style={styles.progressLabel}>Progress</Text>
                                             {renderProgressBar(goal.progress, 200)}
-                                            <View style={styles.progressButtons}>
-                                                <TouchableOpacity
-                                                    style={styles.progressButton}
-                                                    onPress={() => handleUpdateGoalProgress(goal.id, Math.max(0, goal.progress - 10))}
-                                                >
-                                                    <Text style={styles.progressButtonText}>-10%</Text>
-                                                </TouchableOpacity>
-                                                <TouchableOpacity
-                                                    style={styles.progressButton}
-                                                    onPress={() => handleUpdateGoalProgress(goal.id, Math.min(100, goal.progress + 10))}
-                                                >
-                                                    <Text style={styles.progressButtonText}>+10%</Text>
-                                                </TouchableOpacity>
-                                            </View>
+                                            
+                                            {/* Only show progress buttons if not in viewOnly mode */}
+                                            {!viewOnly && (
+                                                <View style={styles.progressButtons}>
+                                                    <TouchableOpacity
+                                                        style={styles.progressButton}
+                                                        onPress={() => handleUpdateGoalProgress(goal.id, Math.max(0, goal.progress - 10))}
+                                                    >
+                                                        <Text style={styles.progressButtonText}>-10%</Text>
+                                                    </TouchableOpacity>
+                                                    <TouchableOpacity
+                                                        style={styles.progressButton}
+                                                        onPress={() => handleUpdateGoalProgress(goal.id, Math.min(100, goal.progress + 10))}
+                                                    >
+                                                        <Text style={styles.progressButtonText}>+10%</Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                            )}
                                         </View>
                                         
                                         {goal.description && (
@@ -391,14 +429,16 @@ const FitnessGoalsWidget = ({ navigation }) => {
                         )}
                     </ScrollView>
 
-                    {/* Add Button */}
-                    <TouchableOpacity 
-                        style={styles.expandedAddButton}
-                        onPress={handleAddGoal}
-                        activeOpacity={0.8}
-                    >
-                        <Text style={styles.expandedAddButtonText}>+ Add New Goal</Text>
-                    </TouchableOpacity>
+                    {/* Add Button - Only show if not in viewOnly mode */}
+                    {!viewOnly && (
+                        <TouchableOpacity 
+                            style={styles.expandedAddButton}
+                            onPress={handleAddGoal}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={styles.expandedAddButtonText}>+ Add New Goal</Text>
+                        </TouchableOpacity>
+                    )}
                 </SafeAreaView>
             </LinearGradient>
         </Modal>

@@ -23,7 +23,7 @@ import {
 
 const { width, height } = Dimensions.get('window');
 
-const FoodieSpotsWidget = ({ navigation }) => {
+const FoodieSpotsWidget = ({ navigation, userData, viewOnly = false }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [foodieSpots, setFoodieSpots] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -33,20 +33,28 @@ const FoodieSpotsWidget = ({ navigation }) => {
     useFocusEffect(
         useCallback(() => {
             loadSpotsFromDatabase();
-        }, [])
+        }, [userData, viewOnly])
     );
 
     const loadSpotsFromDatabase = async () => {
         try {
             setLoading(true);
-            const userEmail = user?.email || "test2@example.com";
-            const result = await getUserWidgetData(userEmail, 'foodie');
             
-            if (result.success && result.data) {
-                setFoodieSpots(result.data.spots || []);
+            if (viewOnly && userData) {
+                // For viewing other users, use the data passed in userData
+                const spotsData = userData.widgetData?.foodie?.spots || [];
+                setFoodieSpots(spotsData);
             } else {
-                console.log("No foodie spots data found, starting with empty array");
-                setFoodieSpots([]);
+                // For own profile, fetch from database as usual
+                const userEmail = user?.email || "test2@example.com";
+                const result = await getUserWidgetData(userEmail, 'foodie');
+                
+                if (result.success && result.data) {
+                    setFoodieSpots(result.data.spots || []);
+                } else {
+                    console.log("No foodie spots data found, starting with empty array");
+                    setFoodieSpots([]);
+                }
             }
         } catch (error) {
             console.error("Error loading foodie spots:", error);
@@ -67,8 +75,10 @@ const FoodieSpotsWidget = ({ navigation }) => {
         setIsExpanded(false);
     };
 
-    // Navigate to AddFoodieSpot screen
+    // Navigate to AddFoodieSpot screen (only for own profile)
     const handleAddSpot = () => {
+        if (viewOnly) return; // Don't allow adding for other users
+        
         console.log('🍽️ Navigating to AddFoodieSpot screen');
         console.log('🍽️ Navigation object:', navigation);
         
@@ -87,6 +97,8 @@ const FoodieSpotsWidget = ({ navigation }) => {
     };
 
     const handleRemoveSpot = async (spotId) => {
+        if (viewOnly) return; // Don't allow removing for other users
+        
         console.log('🗑️ handleRemoveSpot called with spotId:', spotId);
         
         Alert.alert(
@@ -129,6 +141,8 @@ const FoodieSpotsWidget = ({ navigation }) => {
     };
 
     const handleUpdateSpotRating = async (spotId, newRating) => {
+        if (viewOnly) return; // Don't allow editing for other users
+        
         try {
             const userEmail = user?.email || "test2@example.com";
             const result = await updateWidgetItem(userEmail, 'foodie', spotId, { rating: newRating });
@@ -149,12 +163,15 @@ const FoodieSpotsWidget = ({ navigation }) => {
     };
 
     const renderStars = (rating, size = 12, interactive = false, spotId = null) => {
+        // Disable interactivity if in viewOnly mode
+        const isInteractive = interactive && !viewOnly;
+        
         return Array.from({ length: 5 }, (_, i) => (
             <TouchableOpacity
                 key={i}
-                disabled={!interactive}
-                onPress={interactive ? () => handleUpdateSpotRating(spotId, i + 1) : undefined}
-                activeOpacity={interactive ? 0.7 : 1}
+                disabled={!isInteractive}
+                onPress={isInteractive ? () => handleUpdateSpotRating(spotId, i + 1) : undefined}
+                activeOpacity={isInteractive ? 0.7 : 1}
             >
                 <Text style={[styles.star, { fontSize: size }]}>
                     {i < rating ? '★' : '☆'}
@@ -173,6 +190,23 @@ const FoodieSpotsWidget = ({ navigation }) => {
         }
     };
 
+    // Get the title based on viewOnly mode
+    const getTitle = () => {
+        if (viewOnly && userData) {
+            const name = userData.firstName || 'User';
+            return `🍽️ Foodie Spots`;
+        }
+        return '🍽️ Foodie Spots';
+    };
+
+    const getExpandedTitle = () => {
+        if (viewOnly && userData) {
+            const name = userData.firstName || 'User';
+            return `🍽️ ${name}'s Foodie Journey`;
+        }
+        return '🍽️ My Foodie Journey';
+    };
+
     // Compact Widget View
     const CompactWidget = () => (
         <TouchableOpacity onPress={openExpanded} style={styles.widgetContainer} activeOpacity={0.8}>
@@ -183,7 +217,7 @@ const FoodieSpotsWidget = ({ navigation }) => {
                 end={{ x: 1, y: 1 }}
             >
                 <View style={styles.header}>
-                    <Text style={styles.title}>🍽️ Foodie Spots</Text>
+                    <Text style={styles.title}>{getTitle()}</Text>
                     <View style={styles.statsRow}>
                         <Text style={styles.stat}>{foodieSpots.length} spots</Text>
                         <Text style={styles.stat}>★ {averageRating} avg</Text>
@@ -243,7 +277,7 @@ const FoodieSpotsWidget = ({ navigation }) => {
                         <TouchableOpacity onPress={closeExpanded} style={styles.closeButton} activeOpacity={0.7}>
                             <Text style={styles.closeButtonText}>✕</Text>
                         </TouchableOpacity>
-                        <Text style={styles.expandedTitle}>🍽️ My Foodie Journey</Text>
+                        <Text style={styles.expandedTitle}>{getExpandedTitle()}</Text>
                         <View style={styles.placeholder} />
                     </View>
 
@@ -287,8 +321,15 @@ const FoodieSpotsWidget = ({ navigation }) => {
                     >
                         {foodieSpots.length === 0 ? (
                             <View style={styles.emptyState}>
-                                <Text style={styles.emptyStateText}>No spots in your collection yet!</Text>
-                                <Text style={styles.emptyStateSubtext}>Add your first foodie spot to get started</Text>
+                                <Text style={styles.emptyStateText}>
+                                    {viewOnly ? 'No spots in collection yet!' : 'No spots in your collection yet!'}
+                                </Text>
+                                <Text style={styles.emptyStateSubtext}>
+                                    {viewOnly 
+                                        ? 'This user hasn\'t added any foodie spots yet' 
+                                        : 'Add your first foodie spot to get started'
+                                    }
+                                </Text>
                             </View>
                         ) : (
                             foodieSpots.map((spot) => (
@@ -314,19 +355,22 @@ const FoodieSpotsWidget = ({ navigation }) => {
                                                     </View>
                                                 </View>
                                             </View>
-                                            <View style={styles.spotActions}>
-                                                {/* Delete Button */}
-                                                <TouchableOpacity
-                                                    style={styles.deleteIconButton}
-                                                    onPress={() => {
-                                                        console.log('🗑️ Delete button pressed for spot:', spot.id, spot.title);
-                                                        handleRemoveSpot(spot.id);
-                                                    }}
-                                                    activeOpacity={0.7}
-                                                >
-                                                    <Text style={styles.deleteIconText}>🗑️</Text>
-                                                </TouchableOpacity>
-                                            </View>
+                                            
+                                            {/* Only show delete button if not in viewOnly mode */}
+                                            {!viewOnly && (
+                                                <View style={styles.spotActions}>
+                                                    <TouchableOpacity
+                                                        style={styles.deleteIconButton}
+                                                        onPress={() => {
+                                                            console.log('🗑️ Delete button pressed for spot:', spot.id, spot.title);
+                                                            handleRemoveSpot(spot.id);
+                                                        }}
+                                                        activeOpacity={0.7}
+                                                    >
+                                                        <Text style={styles.deleteIconText}>🗑️</Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                            )}
                                         </View>
                                         
                                         {spot.signature && (
@@ -351,14 +395,16 @@ const FoodieSpotsWidget = ({ navigation }) => {
                         )}
                     </ScrollView>
 
-                    {/* Add Button */}
-                    <TouchableOpacity 
-                        style={styles.expandedAddButton}
-                        onPress={handleAddSpot}
-                        activeOpacity={0.8}
-                    >
-                        <Text style={styles.expandedAddButtonText}>+ Add New Spot</Text>
-                    </TouchableOpacity>
+                    {/* Add Button - Only show if not in viewOnly mode */}
+                    {!viewOnly && (
+                        <TouchableOpacity 
+                            style={styles.expandedAddButton}
+                            onPress={handleAddSpot}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={styles.expandedAddButtonText}>+ Add New Spot</Text>
+                        </TouchableOpacity>
+                    )}
                 </SafeAreaView>
             </LinearGradient>
         </Modal>

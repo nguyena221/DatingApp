@@ -22,7 +22,7 @@ import {
 
 const { width, height } = Dimensions.get('window');
 
-const HobbiesSkillsWidget = ({ navigation }) => {
+const HobbiesSkillsWidget = ({ navigation, userData, viewOnly = false }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [hobbiesSkills, setHobbiesSkills] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -32,27 +32,35 @@ const HobbiesSkillsWidget = ({ navigation }) => {
     useFocusEffect(
         useCallback(() => {
             loadHobbiesFromDatabase();
-        }, [])
+        }, [userData, viewOnly])
     );
 
     const loadHobbiesFromDatabase = async () => {
         try {
             setLoading(true);
-            const userEmail = user?.email;
-            if (!userEmail) {
-                console.log("No user logged in");
-                setHobbiesSkills([]);
-                setLoading(false);
-                return;
-            }
             
-            const result = await getUserWidgetData(userEmail, 'hobbies');
-            
-            if (result.success && result.data) {
-                setHobbiesSkills(result.data.skills || []);
+            if (viewOnly && userData) {
+                // For viewing other users, use the data passed in userData
+                const skillsData = userData.widgetData?.hobbies?.skills || [];
+                setHobbiesSkills(skillsData);
             } else {
-                console.log("No hobbies & skills data found, starting with empty array");
-                setHobbiesSkills([]);
+                // For own profile, fetch from database as usual
+                const userEmail = user?.email;
+                if (!userEmail) {
+                    console.log("No user logged in");
+                    setHobbiesSkills([]);
+                    setLoading(false);
+                    return;
+                }
+                
+                const result = await getUserWidgetData(userEmail, 'hobbies');
+                
+                if (result.success && result.data) {
+                    setHobbiesSkills(result.data.skills || []);
+                } else {
+                    console.log("No hobbies & skills data found, starting with empty array");
+                    setHobbiesSkills([]);
+                }
             }
         } catch (error) {
             console.error("Error loading hobbies & skills:", error);
@@ -74,8 +82,10 @@ const HobbiesSkillsWidget = ({ navigation }) => {
         setIsExpanded(false);
     };
 
-    // Navigate to AddHobbySkill screen
+    // Navigate to AddHobbySkill screen (only for own profile)
     const handleAddHobbySkill = () => {
+        if (viewOnly) return; // Don't allow adding for other users
+        
         console.log('🎨 Navigating to AddHobbySkill screen');
         console.log('🎨 Navigation object:', navigation);
         
@@ -94,6 +104,8 @@ const HobbiesSkillsWidget = ({ navigation }) => {
     };
 
     const handleRemoveHobbySkill = async (itemId) => {
+        if (viewOnly) return; // Don't allow removing for other users
+        
         console.log('🗑️ handleRemoveHobbySkill called with itemId:', itemId);
         
         Alert.alert(
@@ -141,6 +153,8 @@ const HobbiesSkillsWidget = ({ navigation }) => {
     };
 
     const handleUpdateLevel = async (itemId, newLevel) => {
+        if (viewOnly) return; // Don't allow editing for other users
+        
         try {
             const userEmail = user?.email;
             if (!userEmail) {
@@ -207,21 +221,41 @@ const HobbiesSkillsWidget = ({ navigation }) => {
         return type === 'hobby' ? '🎯' : '⚡';
     };
 
+    // Get the title based on viewOnly mode
+    const getTitle = () => {
+        if (viewOnly && userData) {
+            const name = userData.firstName || 'User';
+            return `🎨 Hobbies / Skills`;
+        }
+        return '🎨 Hobbies & Skills';
+    };
+
+    const getExpandedTitle = () => {
+        if (viewOnly && userData) {
+            const name = userData.firstName || 'User';
+            return `🎨 ${name}'s Creative Journey`;
+        }
+        return '🎨 My Creative Journey';
+    };
+
     const renderLevelIndicator = (level, interactive = false, itemId = null) => {
+        // Disable interactivity if in viewOnly mode
+        const isInteractive = interactive && !viewOnly;
+        
         const levels = ['beginner', 'intermediate', 'advanced', 'expert'];
         return (
             <View style={styles.levelIndicator}>
                 {levels.map((lvl, index) => (
                     <TouchableOpacity
                         key={lvl}
-                        disabled={!interactive}
-                        onPress={interactive ? () => handleUpdateLevel(itemId, lvl) : undefined}
-                        activeOpacity={interactive ? 0.7 : 1}
+                        disabled={!isInteractive}
+                        onPress={isInteractive ? () => handleUpdateLevel(itemId, lvl) : undefined}
+                        activeOpacity={isInteractive ? 0.7 : 1}
                         style={[
                             styles.levelDot,
                             { 
                                 backgroundColor: index <= levels.indexOf(level) ? getLevelColor(level) : 'rgba(255, 255, 255, 0.3)',
-                                borderWidth: interactive ? 1 : 0,
+                                borderWidth: isInteractive ? 1 : 0,
                                 borderColor: 'rgba(255, 255, 255, 0.5)'
                             }
                         ]}
@@ -241,7 +275,7 @@ const HobbiesSkillsWidget = ({ navigation }) => {
                 end={{ x: 1, y: 1 }}
             >
                 <View style={styles.header}>
-                    <Text style={styles.title}>🎨 Hobbies & Skills</Text>
+                    <Text style={styles.title}>{getTitle()}</Text>
                     <View style={styles.statsRow}>
                         <Text style={styles.stat}>{masteredSkills.length} expert</Text>
                         <Text style={styles.stat}>{uniqueCategories.length} areas</Text>
@@ -300,7 +334,7 @@ const HobbiesSkillsWidget = ({ navigation }) => {
                         <TouchableOpacity onPress={closeExpanded} style={styles.closeButton} activeOpacity={0.7}>
                             <Text style={styles.closeButtonText}>✕</Text>
                         </TouchableOpacity>
-                        <Text style={styles.expandedTitle}>🎨 My Creative Journey</Text>
+                        <Text style={styles.expandedTitle}>{getExpandedTitle()}</Text>
                         <View style={styles.placeholder} />
                     </View>
 
@@ -343,8 +377,15 @@ const HobbiesSkillsWidget = ({ navigation }) => {
                     >
                         {hobbiesSkills.length === 0 ? (
                             <View style={styles.emptyState}>
-                                <Text style={styles.emptyStateText}>No hobbies or skills yet!</Text>
-                                <Text style={styles.emptyStateSubtext}>Add your first hobby or skill to get started</Text>
+                                <Text style={styles.emptyStateText}>
+                                    {viewOnly ? 'No hobbies or skills yet!' : 'No hobbies or skills yet!'}
+                                </Text>
+                                <Text style={styles.emptyStateSubtext}>
+                                    {viewOnly 
+                                        ? 'This user hasn\'t added any hobbies or skills yet' 
+                                        : 'Add your first hobby or skill to get started'
+                                    }
+                                </Text>
                             </View>
                         ) : (
                             hobbiesSkills.map((item) => (
@@ -365,19 +406,23 @@ const HobbiesSkillsWidget = ({ navigation }) => {
                                                     </View>
                                                 </View>
                                             </View>
+                                            
                                             <View style={styles.hobbyActions}>
                                                 <Text style={styles.expandedTypeEmoji}>{getTypeEmoji(item.type)}</Text>
-                                                {/* Delete Button */}
-                                                <TouchableOpacity
-                                                    style={styles.deleteIconButton}
-                                                    onPress={() => {
-                                                        console.log('🗑️ Delete button pressed for item:', item.id, item.title);
-                                                        handleRemoveHobbySkill(item.id);
-                                                    }}
-                                                    activeOpacity={0.7}
-                                                >
-                                                    <Text style={styles.deleteIconText}>🗑️</Text>
-                                                </TouchableOpacity>
+                                                
+                                                {/* Only show delete button if not in viewOnly mode */}
+                                                {!viewOnly && (
+                                                    <TouchableOpacity
+                                                        style={styles.deleteIconButton}
+                                                        onPress={() => {
+                                                            console.log('🗑️ Delete button pressed for item:', item.id, item.title);
+                                                            handleRemoveHobbySkill(item.id);
+                                                        }}
+                                                        activeOpacity={0.7}
+                                                    >
+                                                        <Text style={styles.deleteIconText}>🗑️</Text>
+                                                    </TouchableOpacity>
+                                                )}
                                             </View>
                                         </View>
                                         
@@ -396,14 +441,16 @@ const HobbiesSkillsWidget = ({ navigation }) => {
                         )}
                     </ScrollView>
 
-                    {/* Add Button */}
-                    <TouchableOpacity 
-                        style={styles.expandedAddButton}
-                        onPress={handleAddHobbySkill}
-                        activeOpacity={0.8}
-                    >
-                        <Text style={styles.expandedAddButtonText}>+ Add New Hobby/Skill</Text>
-                    </TouchableOpacity>
+                    {/* Add Button - Only show if not in viewOnly mode */}
+                    {!viewOnly && (
+                        <TouchableOpacity 
+                            style={styles.expandedAddButton}
+                            onPress={handleAddHobbySkill}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={styles.expandedAddButtonText}>+ Add New Hobby/Skill</Text>
+                        </TouchableOpacity>
+                    )}
                 </SafeAreaView>
             </LinearGradient>
         </Modal>

@@ -22,7 +22,7 @@ import {
 
 const { width, height } = Dimensions.get('window');
 
-const TravelPinsWidget = ({ navigation }) => {
+const TravelPinsWidget = ({ navigation, userData, viewOnly = false }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [destinations, setDestinations] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -32,20 +32,28 @@ const TravelPinsWidget = ({ navigation }) => {
     useFocusEffect(
         useCallback(() => {
             loadDestinationsFromDatabase();
-        }, [])
+        }, [userData, viewOnly])
     );
 
     const loadDestinationsFromDatabase = async () => {
         try {
             setLoading(true);
-            const userEmail = user?.email || "test2@example.com";
-            const result = await getUserWidgetData(userEmail, 'travel');
             
-            if (result.success && result.data) {
-                setDestinations(result.data.destinations || []);
+            if (viewOnly && userData) {
+                // For viewing other users, use the data passed in userData
+                const travelData = userData.widgetData?.travel?.destinations || [];
+                setDestinations(travelData);
             } else {
-                console.log("No travel data found, starting with empty array");
-                setDestinations([]);
+                // For own profile, fetch from database as usual
+                const userEmail = user?.email || "test2@example.com";
+                const result = await getUserWidgetData(userEmail, 'travel');
+                
+                if (result.success && result.data) {
+                    setDestinations(result.data.destinations || []);
+                } else {
+                    console.log("No travel data found, starting with empty array");
+                    setDestinations([]);
+                }
             }
         } catch (error) {
             console.error("Error loading destinations:", error);
@@ -66,8 +74,10 @@ const TravelPinsWidget = ({ navigation }) => {
         setIsExpanded(false);
     };
 
-    // Navigate to AddDestination screen
+    // Navigate to AddDestination screen (only for own profile)
     const handleAddDestination = () => {
+        if (viewOnly) return; // Don't allow adding for other users
+        
         console.log('✈️ Navigating to AddDestination screen');
         console.log('✈️ Navigation object:', navigation);
         
@@ -86,6 +96,8 @@ const TravelPinsWidget = ({ navigation }) => {
     };
 
     const handleRemoveDestination = async (destinationId) => {
+        if (viewOnly) return; // Don't allow removing for other users
+        
         console.log('🗑️ handleRemoveDestination called with destinationId:', destinationId);
         
         Alert.alert(
@@ -128,6 +140,8 @@ const TravelPinsWidget = ({ navigation }) => {
     };
 
     const handleToggleVisited = async (destinationId, currentVisited) => {
+        if (viewOnly) return; // Don't allow editing for other users
+        
         try {
             const userEmail = user?.email || "test2@example.com";
             const result = await updateWidgetItem(userEmail, 'travel', destinationId, { visited: !currentVisited });
@@ -147,6 +161,23 @@ const TravelPinsWidget = ({ navigation }) => {
         }
     };
 
+    // Get the title based on viewOnly mode
+    const getTitle = () => {
+        if (viewOnly && userData) {
+            const name = userData.firstName || 'User';
+            return `✈️ Travel Dreams`;
+        }
+        return '✈️ Travel Dreams';
+    };
+
+    const getExpandedTitle = () => {
+        if (viewOnly && userData) {
+            const name = userData.firstName || 'User';
+            return `✈️ Travel Dreams`;
+        }
+        return '✈️ My Travel Dreams';
+    };
+
     // Compact Widget View
     const CompactWidget = () => (
         <TouchableOpacity onPress={openExpanded} style={styles.widgetContainer} activeOpacity={0.8}>
@@ -157,7 +188,7 @@ const TravelPinsWidget = ({ navigation }) => {
                 end={{ x: 1, y: 1 }}
             >
                 <View style={styles.header}>
-                    <Text style={styles.title}>✈️ Travel Dreams</Text>
+                    <Text style={styles.title}>{getTitle()}</Text>
                     <View style={styles.statsRow}>
                         <Text style={styles.stat}>{visitedCount} visited</Text>
                         <Text style={styles.stat}>{wishlistCount} wishlist</Text>
@@ -223,7 +254,7 @@ const TravelPinsWidget = ({ navigation }) => {
                         <TouchableOpacity onPress={closeExpanded} style={styles.closeButton} activeOpacity={0.7}>
                             <Text style={styles.closeButtonText}>✕</Text>
                         </TouchableOpacity>
-                        <Text style={styles.expandedTitle}>✈️ My Travel Dreams</Text>
+                        <Text style={styles.expandedTitle}>{getExpandedTitle()}</Text>
                         <View style={styles.placeholder} />
                     </View>
 
@@ -251,8 +282,15 @@ const TravelPinsWidget = ({ navigation }) => {
                     >
                         {destinations.length === 0 ? (
                             <View style={styles.emptyState}>
-                                <Text style={styles.emptyStateText}>No destinations added yet!</Text>
-                                <Text style={styles.emptyStateSubtext}>Add your first travel destination to get started</Text>
+                                <Text style={styles.emptyStateText}>
+                                    {viewOnly ? 'No destinations added yet!' : 'No destinations added yet!'}
+                                </Text>
+                                <Text style={styles.emptyStateSubtext}>
+                                    {viewOnly 
+                                        ? 'This user hasn\'t added any travel destinations yet' 
+                                        : 'Add your first travel destination to get started'
+                                    }
+                                </Text>
                             </View>
                         ) : (
                             destinations.map((destination) => (
@@ -260,6 +298,7 @@ const TravelPinsWidget = ({ navigation }) => {
                                     <TouchableOpacity 
                                         style={styles.expandedDestinationItem}
                                         activeOpacity={0.7}
+                                        disabled={viewOnly}
                                     >
                                         <View style={styles.expandedDestinationHeader}>
                                             <View style={styles.destinationLeft}>
@@ -269,39 +308,58 @@ const TravelPinsWidget = ({ navigation }) => {
                                                     <Text style={styles.expandedDestinationCountry}>{destination.country}</Text>
                                                 </View>
                                             </View>
-                                            <View style={styles.destinationActions}>
-                                                {/* Toggle Visited Status */}
-                                                <TouchableOpacity
-                                                    style={[
-                                                        styles.toggleButton,
-                                                        destination.visited ? styles.visitedBadge : styles.wishlistBadge
-                                                    ]}
-                                                    onPress={() => {
-                                                        console.log('🔄 Toggle visited status for destination:', destination.id, destination.name);
-                                                        handleToggleVisited(destination.id, destination.visited);
-                                                    }}
-                                                    activeOpacity={0.7}
-                                                >
+                                            
+                                            {/* Only show action buttons if not in viewOnly mode */}
+                                            {!viewOnly && (
+                                                <View style={styles.destinationActions}>
+                                                    {/* Toggle Visited Status */}
+                                                    <TouchableOpacity
+                                                        style={[
+                                                            styles.toggleButton,
+                                                            destination.visited ? styles.visitedBadge : styles.wishlistBadge
+                                                        ]}
+                                                        onPress={() => {
+                                                            console.log('🔄 Toggle visited status for destination:', destination.id, destination.name);
+                                                            handleToggleVisited(destination.id, destination.visited);
+                                                        }}
+                                                        activeOpacity={0.7}
+                                                    >
+                                                        <Text style={[
+                                                            styles.toggleButtonText,
+                                                            destination.visited ? styles.visitedText : styles.wishlistText
+                                                        ]}>
+                                                            {destination.visited ? '✓' : '♡'}
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                    
+                                                    {/* Delete Button */}
+                                                    <TouchableOpacity
+                                                        style={styles.deleteIconButton}
+                                                        onPress={() => {
+                                                            console.log('🗑️ Delete button pressed for destination:', destination.id, destination.name);
+                                                            handleRemoveDestination(destination.id);
+                                                        }}
+                                                        activeOpacity={0.7}
+                                                    >
+                                                        <Text style={styles.deleteIconText}>🗑️</Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                            )}
+                                            
+                                            {/* Show read-only status if in viewOnly mode */}
+                                            {viewOnly && (
+                                                <View style={[
+                                                    styles.statusBadge, 
+                                                    destination.visited ? styles.visitedBadge : styles.wishlistBadge
+                                                ]}>
                                                     <Text style={[
-                                                        styles.toggleButtonText,
+                                                        styles.statusText,
                                                         destination.visited ? styles.visitedText : styles.wishlistText
                                                     ]}>
                                                         {destination.visited ? '✓' : '♡'}
                                                     </Text>
-                                                </TouchableOpacity>
-                                                
-                                                {/* Delete Button */}
-                                                <TouchableOpacity
-                                                    style={styles.deleteIconButton}
-                                                    onPress={() => {
-                                                        console.log('🗑️ Delete button pressed for destination:', destination.id, destination.name);
-                                                        handleRemoveDestination(destination.id);
-                                                    }}
-                                                    activeOpacity={0.7}
-                                                >
-                                                    <Text style={styles.deleteIconText}>🗑️</Text>
-                                                </TouchableOpacity>
-                                            </View>
+                                                </View>
+                                            )}
                                         </View>
                                         {destination.notes && (
                                             <Text style={styles.destinationNotes}>{destination.notes}</Text>
@@ -312,14 +370,16 @@ const TravelPinsWidget = ({ navigation }) => {
                         )}
                     </ScrollView>
 
-                    {/* Add Button */}
-                    <TouchableOpacity 
-                        style={styles.expandedAddButton}
-                        onPress={handleAddDestination}
-                        activeOpacity={0.8}
-                    >
-                        <Text style={styles.expandedAddButtonText}>+ Add New Destination</Text>
-                    </TouchableOpacity>
+                    {/* Add Button - Only show if not in viewOnly mode */}
+                    {!viewOnly && (
+                        <TouchableOpacity 
+                            style={styles.expandedAddButton}
+                            onPress={handleAddDestination}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={styles.expandedAddButtonText}>+ Add New Destination</Text>
+                        </TouchableOpacity>
+                    )}
                 </SafeAreaView>
             </LinearGradient>
         </Modal>
