@@ -12,10 +12,12 @@ import FoodieSpotsWidget from '../widgets/FoodieSpotsWidget';
 import { useNavigation } from '@react-navigation/native';
 import TVShowsWidget from '../widgets/TVShowsWidget';
 import FitnessGoalsWidget from '../widgets/FitnessGoalsWidget';
+import HobbiesSkillsWidget from '../widgets/HobbiesSkillsWidget';
+import LifeGoalsWidget from '../widgets/LifeGoalsWidget';
 
 export default function ProfilePageWidgets() {
     const [bgColor, setBgColor] = useState('#e3f2fd');
-    const [selectedWidgets, setSelectedWidgets] = useState(['travel', 'movies', 'books', 'foodie', 'tvshows', 'fitnessgoals']);
+    const [selectedWidgets, setSelectedWidgets] = useState(['travel', 'movies', 'books', 'foodie', 'tvshows', 'fitnessgoals', 'hobbies']);
     const { currentUser } = useUser();
     const navigation = useNavigation();
 
@@ -27,10 +29,10 @@ export default function ProfilePageWidgets() {
         foodie: FoodieSpotsWidget,
         tvshows: TVShowsWidget,
         fitness: FitnessGoalsWidget,
+        hobbies: HobbiesSkillsWidget,
+        goals: LifeGoalsWidget,
         // Future widgets will be added here
         music: () => <ComingSoonWidget type="Music Vibes" emoji="🎵" />,
-        hobbies: () => <ComingSoonWidget type="Hobbies & Skills" emoji="🎨" />,
-        goals: () => <ComingSoonWidget type="Life Goals" emoji="🎯" />,
     };
 
     // Coming Soon Widget Component
