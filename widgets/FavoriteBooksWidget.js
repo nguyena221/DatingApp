@@ -256,7 +256,7 @@ const FavoriteBooksWidget = ({ navigation }) => {
     const CompactWidget = () => (
         <TouchableOpacity onPress={openExpanded} style={styles.widgetContainer} activeOpacity={0.8}>
             <LinearGradient
-                colors={['#8e44ad', '#3498db']}
+                colors={['#03af92', '#eef736']}
                 style={styles.container}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
@@ -312,9 +312,9 @@ const FavoriteBooksWidget = ({ navigation }) => {
             presentationStyle="fullScreen"
             onRequestClose={closeExpanded}
         >
-            <StatusBar barStyle="light-content" backgroundColor="#8e44ad" />
+            <StatusBar barStyle="light-content" backgroundColor="#03af92" />
             <LinearGradient
-                colors={['#8e44ad', '#3498db']}
+                colors={['#03af92', '#eef736']}
                 style={styles.expandedContainer}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
