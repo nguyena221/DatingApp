@@ -22,6 +22,12 @@ function sanitizeEmail(email) {
 export async function storeUser(user) {
   const userID = sanitizeEmail(user.email);
   const userDocRef = doc(db, "users", userID);
+
+  const existingDoc = await getDoc(userDocRef);
+  if (existingDoc.exists()) {
+    throw new Error("Email is already registered.");
+  }
+
   await setDoc(userDocRef, {
     email: user.email,
     password: user.password,
