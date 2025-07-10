@@ -20,7 +20,6 @@ import MessagesScreen from './screens/MessagesScreen';
 import ChatRoom from './screens/ChatRoom';
 
 import AddBookScreen from './components/AddBookScreen';
-import AddBookScreen from './components/AddBookScreen'
 import AddMovieScreen from './components/AddMovieScreen';
 import AddDestinationScreen from './components/AddDestinationScreen';
 import AddFoodieSpotScreen from './components/AddFoodieSpot';

@@ -3,20 +3,18 @@ import { StyleSheet } from "react-native";
 const styles = StyleSheet.create({
   mainContainer: {
     flex: 1,
-    backgroundColor: "#8ebd9d",
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 20,
   },
   title: {
-    color: "#1b475d",
-    fontSize: 40,
+    color: "#ffffff",
+    fontSize: 60,
     marginBottom: 40,
     textAlign: "center",
     fontWeight: "bold",
   },
   logPanel: {
-    backgroundColor: "#eee5c2",
     borderRadius: 40,
     paddingVertical: 40,
     paddingHorizontal: 40,
@@ -58,7 +56,7 @@ const styles = StyleSheet.create({
     textDecorationLine: "underline",
   },
   loginButton: {
-    backgroundColor: "#1b475d",
+    backgroundColor: "#888",
     borderRadius: 100,
     width: 40,
     height: 40,
@@ -73,14 +71,14 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   forgotText: {
-    color: "#1b475d",
+    color: "#000",
     textAlign: "center",
     fontSize: 14,
     textDecorationLine: "underline",
     marginBottom: 10,
   },
   switchText: {
-    color: "#1b475d",
+    color: "#000",
     textAlign: "center",
     textDecorationLine: "underline",
     fontSize: 14,
