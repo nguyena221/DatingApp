@@ -19,7 +19,6 @@ import LifestyleQuizWithFirebase from './components/LifestyleQuiz';
 import MessagesScreen from './screens/MessagesScreen';
 import ChatRoom from './screens/ChatRoom';
 
-import AddBookScreen from './components/AddBookScreen';
 import AddBookScreen from './components/AddBookScreen'
 import AddMovieScreen from './components/AddMovieScreen';
 import AddDestinationScreen from './components/AddDestinationScreen';
@@ -27,6 +26,7 @@ import AddFoodieSpotScreen from './components/AddFoodieSpot';
 import AddTVShowScreen from './components/AddTVShowScreen';
 import AddFitnessGoalScreen from './components/AddFitnessGoalScreen';
 import AddHobbySkillScreen from './components/AddHobbySkillScreen';
+import AddLifeGoalScreen from './components/AddLifeGoalScreen';
 
 
 const Stack = createNativeStackNavigator();
@@ -168,6 +168,15 @@ function AppNavigator() {
       <Stack.Screen
         name="AddHobbySkill"
         component={AddHobbySkillScreen}
+        options={{ 
+          headerShown: false, 
+          presentation: 'modal',
+          animationTypeForReplace: 'push'
+        }}
+      />
+      <Stack.Screen
+        name="AddLifeGoal"
+        component={AddLifeGoalScreen}
         options={{ 
           headerShown: false, 
           presentation: 'modal',

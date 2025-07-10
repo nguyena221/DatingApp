@@ -283,7 +283,6 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
                         description: 'Dreams and aspirations',
                         emoji: '🎯',
                         color: ['#fa709a', '#fee140'],
-                        comingSoon: true
                     }
                 ];
                 setAvailableWidgets(widgets);
