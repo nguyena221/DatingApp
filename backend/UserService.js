@@ -521,6 +521,8 @@ const getWidgetArrayName = (widgetType) => {
     foodie: 'spots',
     tvshows: 'shows',
     fitness: 'goals',
+    hobbies: 'skills',
+    lifegoals: 'goals',
   };
   return arrayNames[widgetType];
 };
@@ -574,7 +576,15 @@ export async function initializeWidgetData(email, widgetType) {
      fitness: {
         goals: [],
         lastUpdated: new Date().toISOString()
-     }
+     },
+     hobbies: {
+        skills: [],
+        lastUpdated: new Date().toISOString()
+    },
+    lifegoals: {
+        goals: [],
+        lastUpdated: new Date().toISOString()
+    },
     };
 
     const updateField = `widgetData.${widgetType}`;
