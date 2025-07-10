@@ -222,7 +222,7 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
                     if (savedWidgets && savedWidgets.length > 0) {
                         setSelectedWidgets(savedWidgets);
                     } else {
-                        setSelectedWidgets(['travel', 'movies', 'books', 'foodie', 'tvshows']);
+                        setSelectedWidgets(['travel', 'movies', 'books', 'foodie', 'tvshows', 'fitnessgoals']);
                     }
                 }
 
@@ -269,7 +269,6 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
                         description: 'Workouts and health achievements',
                         emoji: '💪',
                         color: ['#11998e', '#38ef7d'],
-                        comingSoon: true
                     },
                     {
                         id: 'hobbies',
