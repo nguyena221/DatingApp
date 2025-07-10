@@ -3,176 +3,230 @@ import {
   View,
   Text,
   StyleSheet,
-  TextInput,
-  TouchableOpacity,
   FlatList,
-  KeyboardAvoidingView,
-  Platform,
+  TouchableOpacity,
+  ActivityIndicator,
+  Image,
 } from "react-native";
-import { useRoute } from "@react-navigation/native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useNavigation } from "@react-navigation/native";
 import {
   collection,
-  addDoc,
   query,
-  orderBy,
+  where,
   onSnapshot,
-  serverTimestamp,
+  orderBy,
   doc,
   getDoc,
 } from "firebase/firestore";
+import { LinearGradient } from "expo-linear-gradient";
 import { db } from "../backend/FirebaseConfig";
 
-export default function ChatRoom() {
-  const route = useRoute();
-  const { chatId, otherUser, currentUserEmail } = route.params;
+// Utility to darken a hex color
+const darkenHexColor = (hex, factor = 0.8) => {
+  const f = parseInt(hex.slice(1), 16);
+  const r = Math.floor(((f >> 16) & 255) * factor);
+  const g = Math.floor(((f >> 8) & 255) * factor);
+  const b = Math.floor((f & 255) * factor);
+  return `#${(r << 16 | g << 8 | b).toString(16).padStart(6, "0")}`;
+};
 
-  const [messages, setMessages] = useState([]);
-  const [newMessage, setNewMessage] = useState("");
-  const [backgroundColor, setBackgroundColor] = useState("#f8f9fa");
+export default function MessagesScreen() {
+  const [currentUserEmail, setCurrentUserEmail] = useState(null);
+  const [chats, setChats] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const navigation = useNavigation();
 
-  // Fetch background color of the other user
   useEffect(() => {
-    const fetchColor = async () => {
-      try {
-        const otherUserId = otherUser.replace(/\./g, "_");
-        const userRef = doc(db, "users", otherUserId);
-        const userSnap = await getDoc(userRef);
-
-        if (userSnap.exists()) {
-          const userData = userSnap.data();
-          if (userData.profileBackgroundColor) {
-            setBackgroundColor(userData.profileBackgroundColor);
-          }
-        }
-      } catch (error) {
-        console.error("❌ Error fetching user background color:", error);
-      }
+    const fetchUser = async () => {
+      const email = await AsyncStorage.getItem("currentUserEmail");
+      if (email) setCurrentUserEmail(email);
     };
+    fetchUser();
+  }, []);
 
-    if (otherUser) fetchColor();
-  }, [otherUser]);
-
-  // Listen for new messages
   useEffect(() => {
-    const messagesRef = collection(db, "chats", chatId, "messages");
-    const q = query(messagesRef, orderBy("timestamp", "asc"));
+    if (!currentUserEmail) return;
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const loadedMessages = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setMessages(loadedMessages);
+    const q = query(
+      collection(db, "chats"),
+      where("participants", "array-contains", currentUserEmail),
+      orderBy("lastTimestamp", "desc")
+    );
+
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      const chatData = await Promise.all(
+        snapshot.docs.map(async (docSnap) => {
+          const chat = { id: docSnap.id, ...docSnap.data() };
+          const otherUser = chat.participants.find(
+            (p) => p !== currentUserEmail
+          );
+
+          let displayName = otherUser;
+          let profilePhoto = null;
+          let backgroundColor = "#ffffff";
+
+          try {
+            const userDoc = await getDoc(
+              doc(db, "users", otherUser.replace(/\./g, "_"))
+            );
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              displayName = `${userData.firstName || ""} ${
+                userData.lastName || ""
+              }`.trim();
+              profilePhoto = userData.profilePhotoURL || null;
+              backgroundColor =
+                userData.profileBackgroundColor || "#ffffff";
+            }
+          } catch (err) {
+            console.error("Error fetching user data:", err);
+          }
+
+          return {
+            ...chat,
+            otherUserEmail: otherUser,
+            displayName,
+            profilePhoto,
+            backgroundColor,
+            darkerBackgroundColor: darkenHexColor(backgroundColor),
+          };
+        })
+      );
+      setChats(chatData);
+      setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [chatId]);
-
-  const handleSend = async () => {
-    if (!newMessage.trim()) return;
-
-    const messagesRef = collection(db, "chats", chatId, "messages");
-
-    await addDoc(messagesRef, {
-      sender: currentUserEmail,
-      text: newMessage,
-      timestamp: serverTimestamp(),
-    });
-
-    setNewMessage("");
-  };
+  }, [currentUserEmail]);
 
   const renderItem = ({ item }) => {
-    const isCurrentUser = item.sender === currentUserEmail;
     return (
-      <View
-        style={[
-          styles.messageBubble,
-          isCurrentUser ? styles.myMessage : styles.theirMessage,
-        ]}
+      <TouchableOpacity
+        onPress={() =>
+          navigation.navigate("ChatRoom", {
+            chatId: item.id,
+            otherUser: item.otherUserEmail,
+            currentUserEmail,
+          })
+        }
       >
-        <Text style={styles.messageText}>{item.text}</Text>
-      </View>
+        <LinearGradient
+          colors={[item.backgroundColor, item.darkerBackgroundColor]}
+          style={styles.chatCard}
+        >
+          <View style={styles.chatRow}>
+            {item.profilePhoto ? (
+              <Image source={{ uri: item.profilePhoto }} style={styles.avatar} />
+            ) : (
+              <View style={styles.avatarPlaceholder}>
+                <Text style={styles.initials}>
+                  {item.displayName
+                    ?.split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .toUpperCase() || "?"}
+                </Text>
+              </View>
+            )}
+            <View style={styles.chatText}>
+              <Text style={styles.chatName}>{item.displayName}</Text>
+              <Text style={styles.chatMessage} numberOfLines={1}>
+                {item.lastMessage || "No messages yet"}
+              </Text>
+            </View>
+          </View>
+        </LinearGradient>
+      </TouchableOpacity>
     );
   };
 
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#667eea" />
+      </View>
+    );
+  }
+
   return (
-    <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor }]}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={90}
-    >
+    <View style={styles.container}>
+      <Text style={styles.title}>Messages</Text>
       <FlatList
-        data={messages}
+        data={chats}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        contentContainerStyle={styles.messagesList}
+        contentContainerStyle={styles.list}
       />
-
-      <View style={styles.inputContainer}>
-        <TextInput
-          value={newMessage}
-          onChangeText={setNewMessage}
-          placeholder="Type a message..."
-          style={styles.input}
-        />
-        <TouchableOpacity onPress={handleSend} style={styles.sendButton}>
-          <Text style={styles.sendText}>Send</Text>
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#f8f9fa",
+    paddingTop: 70,
   },
-  messagesList: {
-    padding: 12,
-  },
-  messageBubble: {
-    padding: 10,
-    borderRadius: 12,
-    marginBottom: 8,
-    maxWidth: "75%",
-  },
-  myMessage: {
-    backgroundColor: "#667eea",
-    alignSelf: "flex-end",
-  },
-  theirMessage: {
-    backgroundColor: "#e5e5ea",
-    alignSelf: "flex-start",
-  },
-  messageText: {
-    color: "white",
-  },
-  inputContainer: {
-    flexDirection: "row",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: "#ccc",
-    backgroundColor: "white",
-  },
-  input: {
-    flex: 1,
-    backgroundColor: "#f1f3f6",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 10,
-  },
-  sendButton: {
-    backgroundColor: "#667eea",
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    justifyContent: "center",
-  },
-  sendText: {
-    color: "white",
+  title: {
+    fontSize: 32,
     fontWeight: "bold",
+    color: "#2c3e50",
+    paddingBottom: 30,
+    textAlign: "center",
+  },
+  list: {
+    paddingHorizontal: 20,
+  },
+  chatCard: {
+    borderRadius: 35,
+    padding: 12,
+    marginBottom: 14,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
+  },
+  chatRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  avatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    marginRight: 12,
+  },
+  avatarPlaceholder: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    marginRight: 12,
+    backgroundColor: "#ddd",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  initials: {
+    fontSize: 20,
+    color: "#555",
+    fontWeight: "600",
+  },
+  chatText: {
+    flex: 1,
+  },
+  chatName: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  chatMessage: {
+    fontSize: 14,
+    color: "#555",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
