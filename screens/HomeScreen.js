@@ -138,7 +138,7 @@ export default function HomeScreen() {
 
           <View style={styles.footer}>
             <Text style={styles.footerText}>
-              🎯 Complete quizzes to unlock    personalized profile banners!
+              🎯 Complete quizzes to unlock personalized profile banners!
             </Text>
           </View>
           <View style={{height: 50}}>

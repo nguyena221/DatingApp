@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Image,
+  Alert,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
@@ -18,6 +19,7 @@ import {
   orderBy,
   doc,
   getDoc,
+  deleteDoc,
 } from "firebase/firestore";
 import { LinearGradient } from "expo-linear-gradient";
 import { db } from "../backend/FirebaseConfig";
@@ -28,7 +30,34 @@ const darkenHexColor = (hex, factor = 0.8) => {
   const r = Math.floor(((f >> 16) & 255) * factor);
   const g = Math.floor(((f >> 8) & 255) * factor);
   const b = Math.floor((f & 255) * factor);
-  return `#${(r << 16 | g << 8 | b).toString(16).padStart(6, "0")}`;
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
+};
+
+const confirmDeleteChat = async (chatId) => {
+  Alert.alert(
+    "Delete Chat",
+    "Are you sure you want to delete this conversation?",
+    [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            console.log("🔨 Deleting chat with ID:", chatId);
+            await deleteDoc(doc(db, "chats", chatId));
+            console.log("✅ Chat successfully deleted");
+
+            // Temporary feedback:
+            Alert.alert("Chat Deleted", "This chat has been removed from Firestore.");
+          } catch (error) {
+            console.error("❌ Error deleting chat:", error);
+            Alert.alert("Delete Failed", "Could not delete chat. Check console for error.");
+          }
+        },
+      },
+    ]
+  );
 };
 
 export default function MessagesScreen() {
@@ -76,8 +105,7 @@ export default function MessagesScreen() {
                 userData.lastName || ""
               }`.trim();
               profilePhoto = userData.profilePhotoURL || null;
-              backgroundColor =
-                userData.profileBackgroundColor || "#ffffff";
+              backgroundColor = userData.profileBackgroundColor || "#ffffff";
             }
           } catch (err) {
             console.error("Error fetching user data:", err);
@@ -102,42 +130,53 @@ export default function MessagesScreen() {
 
   const renderItem = ({ item }) => {
     return (
-      <TouchableOpacity
-        onPress={() =>
-          navigation.navigate("ChatRoom", {
-            chatId: item.id,
-            otherUser: item.otherUserEmail,
-            currentUserEmail,
-          })
-        }
-      >
-        <LinearGradient
-          colors={[item.backgroundColor, item.darkerBackgroundColor]}
-          style={styles.chatCard}
+      <View style={{ position: "relative" }}>
+        <TouchableOpacity
+          onPress={() =>
+            navigation.navigate("ChatRoom", {
+              chatId: item.id,
+              otherUser: item.otherUserEmail,
+              currentUserEmail,
+            })
+          }
         >
-          <View style={styles.chatRow}>
-            {item.profilePhoto ? (
-              <Image source={{ uri: item.profilePhoto }} style={styles.avatar} />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.initials}>
-                  {item.displayName
-                    ?.split(" ")
-                    .map((n) => n[0])
-                    .join("")
-                    .toUpperCase() || "?"}
+          <LinearGradient
+            colors={[item.backgroundColor, item.darkerBackgroundColor]}
+            style={styles.chatCard}
+          >
+            <View style={styles.chatRow}>
+              {item.profilePhoto ? (
+                <Image
+                  source={{ uri: item.profilePhoto }}
+                  style={styles.avatar}
+                />
+              ) : (
+                <View style={styles.avatarPlaceholder}>
+                  <Text style={styles.initials}>
+                    {item.displayName
+                      ?.split(" ")
+                      .map((n) => n[0])
+                      .join("")
+                      .toUpperCase() || "?"}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.chatText}>
+                <Text style={styles.chatName}>{item.displayName}</Text>
+                <Text style={styles.chatMessage} numberOfLines={1}>
+                  {item.lastMessage || "No messages yet"}
                 </Text>
               </View>
-            )}
-            <View style={styles.chatText}>
-              <Text style={styles.chatName}>{item.displayName}</Text>
-              <Text style={styles.chatMessage} numberOfLines={1}>
-                {item.lastMessage || "No messages yet"}
-              </Text>
+              <TouchableOpacity
+                onPress={() => confirmDeleteChat(item.id)}
+                style={styles.deleteButton}
+              >
+                <Text style={styles.deleteText}>✕</Text>
+              </TouchableOpacity>
             </View>
-          </View>
-        </LinearGradient>
-      </TouchableOpacity>
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
     );
   };
 
@@ -228,5 +267,20 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+  },
+  deleteButton: {
+    marginLeft: 10,
+    padding: 6,
+    borderRadius: 20,
+    backgroundColor: "#ff4d4f",
+    justifyContent: "center",
+    alignItems: "center",
+    width: 30,
+    height: 30,
+  },
+  deleteText: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 16,
   },
 });

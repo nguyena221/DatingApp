@@ -13,11 +13,21 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import LogoutButton from "../components/LogoutButton";
-import { collection, getDocs } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  getDoc,
+  setDoc,
+  addDoc,
+  query,
+  where,
+  doc,
+} from "firebase/firestore";
 import { db } from "../backend/FirebaseConfig";
 import { calculateAge } from "../backend/UserService";
 import { useUser } from "../contexts/UserContext";
 import SettingsPage from "./SettingsPage";
+import { useNavigation } from "@react-navigation/native";
 
 const DiscoverStack = createNativeStackNavigator();
 
@@ -53,6 +63,37 @@ function DiscoverMainScreen({ navigation }) {
     } catch (error) {
       console.error("Error loading profiles:", error);
       setLoading(false);
+    }
+  };
+
+  const startChat = async (targetUser) => {
+    try {
+      const currentEmail = currentUser?.email;
+      const targetEmail = targetUser?.email;
+
+      if (!currentEmail || !targetEmail) return;
+
+      // Sort emails to make ID deterministic (same for both users)
+      const chatId = [currentEmail, targetEmail].sort().join("_");
+      const chatRef = doc(db, "chats", chatId);
+
+      // Check if chat already exists
+      const chatSnap = await getDoc(chatRef);
+      if (!chatSnap.exists()) {
+        await setDoc(chatRef, {
+          id: chatId,
+          participants: [currentEmail, targetEmail],
+          lastMessage: "",
+          lastTimestamp: new Date(),
+        });
+      }
+
+      navigation.navigate("ChatRoom", {
+        chatId,
+        otherUser: targetUser,
+      });
+    } catch (err) {
+      console.error("Error starting chat:", err);
     }
   };
 
@@ -133,6 +174,13 @@ function DiscoverMainScreen({ navigation }) {
               </View>
             )}
           </View>
+
+          <TouchableOpacity
+            style={styles.messageButton}
+            onPress={() => startChat(currentProfile)}
+          >
+            <Text style={styles.messageButtonText}>Message This User</Text>
+          </TouchableOpacity>
 
           <TouchableOpacity style={styles.nextButton} onPress={nextProfile}>
             <Text style={styles.nextButtonText}>Next Profile →</Text>
@@ -336,6 +384,22 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontStyle: "italic",
   },
+  messageButton: {
+    borderWidth: 2,
+    borderColor: "#007AFF",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    alignItems: "center",
+    marginTop: 10,
+  },
+
+  messageButtonText: {
+    color: "#007AFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+
   nextButton: {
     backgroundColor: "#007AFF",
     paddingHorizontal: 20,

@@ -28,14 +28,14 @@ export default function LoginScreen() {
   const navigation = useNavigation();
   const { login: contextLogin } = useUser();
 
-  const [email, setEmail] = useState("test2@example.com");
-  const [pass, setPass] = useState("pass123");
-  const [firstN, setFirstN] = useState("Annie");
-  const [lastN, setLastN] = useState("Doe");
+  const [email, setEmail] = useState("");
+  const [pass, setPass] = useState("");
+  const [firstN, setFirstN] = useState("");
+  const [lastN, setLastN] = useState("");
   const [birthDate, setBirthDate] = useState();
   const [loginStatus, setLoginStatus] = useState("");
   const [isLogin, setIsLogin] = useState(true);
-  const [activeTab, setActiveTab] = useState("LOGIN");
+  const [activeTab, setActiveTab] = useState("");
   const [passwordError, setPasswordError] = useState("");
 
   const login = async (email) => {
@@ -139,10 +139,6 @@ export default function LoginScreen() {
                 <SubmitButton
                   onPress={isLogin ? handleLogin : handleRegister}
                 />
-
-                <TouchableOpacity>
-                  <Text style={styles.forgotText}>Forgot Password?</Text>
-                </TouchableOpacity>
 
                 <TouchableOpacity
                   onPress={() => {
