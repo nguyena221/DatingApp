@@ -16,6 +16,7 @@ import { getUserWithPersonality, storeLocationSettings } from '../backend/UserSe
 export default function SettingsPage() {
   const [locationEnabled, setLocationEnabled] = useState(false);
   const [radiusMiles, setRadiusMiles] = useState(25);
+  const [genderPreference, setGenderPreference] = useState('Both');
   const [loading, setLoading] = useState(true);
   const { currentUser } = useUser();
 
@@ -23,20 +24,97 @@ export default function SettingsPage() {
     loadUserSettings();
   }, []);
 
+  const getDefaultGenderPreference = (userGender, userSexualOrientation) => {
+    if (!userSexualOrientation) return 'Both';
+    
+    const orientation = userSexualOrientation.toLowerCase();
+    const gender = userGender?.toLowerCase();
+    
+    if (orientation === 'straight') {
+      if (gender === 'male') return 'Female';
+      if (gender === 'female') return 'Male';
+      return 'Both'; // For other genders
+    } else if (orientation === 'gay') {
+      if (gender === 'male') return 'Male';
+      if (gender === 'female') return 'Female';
+      return 'Both'; // For other genders
+    } else if (orientation === 'bisexual') {
+      return 'Both';
+    } else {
+      return 'Both'; // For other orientations
+    }
+  };
+
   const loadUserSettings = async () => {
     try {
       const userEmail = currentUser?.email || "test2@example.com";
       const result = await getUserWithPersonality(userEmail);
       
-      if (result.success && result.user && result.user.locationSettings) {
-        const settings = result.user.locationSettings;
-        setLocationEnabled(settings.enabled || false);
-        setRadiusMiles(settings.radiusMiles || 25);
+      if (result.success && result.user) {
+        // Load location settings
+        if (result.user.locationSettings) {
+          const settings = result.user.locationSettings;
+          setLocationEnabled(settings.enabled || false);
+          setRadiusMiles(settings.radiusMiles || 25);
+          
+          // Load gender preference or set default
+          if (settings.genderPreference) {
+            setGenderPreference(settings.genderPreference);
+          } else {
+            // Set default based on user's sexual orientation
+            const defaultPref = getDefaultGenderPreference(
+              result.user.gender, 
+              result.user.sexualOrientation
+            );
+            setGenderPreference(defaultPref);
+          }
+        } else {
+          // No location settings exist, set default gender preference
+          const defaultPref = getDefaultGenderPreference(
+            result.user.gender, 
+            result.user.sexualOrientation
+          );
+          setGenderPreference(defaultPref);
+        }
       }
       setLoading(false);
     } catch (error) {
       console.error('Error loading user settings:', error);
       setLoading(false);
+    }
+  };
+
+  const updateGenderPreference = async (preference) => {
+    try {
+      const userEmail = currentUser?.email || "test2@example.com";
+      const userData = await getUserWithPersonality(userEmail);
+      
+      let updatedSettings = {
+        enabled: locationEnabled,
+        radiusMiles: radiusMiles,
+        genderPreference: preference,
+        lastUpdated: new Date().toISOString()
+      };
+
+      // Preserve existing location data if available
+      if (userData.success && userData.user.locationSettings) {
+        updatedSettings = {
+          ...userData.user.locationSettings,
+          genderPreference: preference,
+          lastUpdated: new Date().toISOString()
+        };
+      }
+
+      const result = await storeLocationSettings(userEmail, updatedSettings);
+      
+      if (result.success) {
+        setGenderPreference(preference);
+      } else {
+        Alert.alert('Error', 'Failed to update gender preference.');
+      }
+    } catch (error) {
+      console.error('Error updating gender preference:', error);
+      Alert.alert('Error', 'Failed to update gender preference.');
     }
   };
 
@@ -63,6 +141,7 @@ export default function SettingsPage() {
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
           radiusMiles: radiusMiles,
+          genderPreference: genderPreference,
           lastUpdated: new Date().toISOString()
         };
 
@@ -90,6 +169,7 @@ export default function SettingsPage() {
         latitude: null,
         longitude: null,
         radiusMiles: radiusMiles,
+        genderPreference: genderPreference,
         lastUpdated: new Date().toISOString()
       };
 
@@ -143,6 +223,37 @@ export default function SettingsPage() {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         
+        {/* Gender Preference Section */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>💕 Gender Preference</Text>
+          </View>
+          
+          <Text style={styles.preferenceDescription}>
+            Choose which genders you'd like to see in your discovery feed
+          </Text>
+          
+          <View style={styles.genderOptionsContainer}>
+            {['Male', 'Female', 'Both'].map((option) => (
+              <TouchableOpacity
+                key={option}
+                style={[
+                  styles.genderOption,
+                  genderPreference === option && styles.genderOptionSelected
+                ]}
+                onPress={() => updateGenderPreference(option)}
+              >
+                <Text style={[
+                  styles.genderOptionText,
+                  genderPreference === option && styles.genderOptionTextSelected
+                ]}>
+                  {option}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
         {/* Location Services Section */}
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
@@ -196,12 +307,14 @@ export default function SettingsPage() {
         {/* Status Info */}
         <View style={styles.statusCard}>
           <Text style={styles.statusTitle}>
-            {locationEnabled ? '✅ Location Services Active' : '❌ Location Services Disabled'}
+            Current Preferences
           </Text>
           <Text style={styles.statusDescription}>
-            {locationEnabled 
-              ? `You can discover profiles within ${radiusMiles} miles of your location.`
-              : 'Enable location services to find people near you.'
+            Gender: {genderPreference}
+            {'\n'}
+            Location: {locationEnabled 
+              ? `Enabled (${radiusMiles} miles)`
+              : 'Disabled'
             }
           </Text>
         </View>
@@ -244,12 +357,44 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   sectionHeader: {
-    marginBottom: 20,
+    marginBottom: 15,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
+  },
+  preferenceDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 20,
+    lineHeight: 18,
+  },
+  genderOptionsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  genderOption: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 25,
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+  },
+  genderOptionSelected: {
+    borderColor: '#007AFF',
+    backgroundColor: '#007AFF',
+  },
+  genderOptionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+  },
+  genderOptionTextSelected: {
+    color: '#ffffff',
   },
   settingRow: {
     flexDirection: 'row',

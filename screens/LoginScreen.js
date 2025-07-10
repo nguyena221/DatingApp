@@ -28,15 +28,16 @@ export default function LoginScreen() {
   const navigation = useNavigation();
   const { login: contextLogin } = useUser();
 
-
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
   const [firstN, setFirstN] = useState("");
   const [lastN, setLastN] = useState("");
   const [birthDate, setBirthDate] = useState();
+  const [gender, setGender] = useState("");
+  const [sexualOrientation, setSexualOrientation] = useState("");
   const [loginStatus, setLoginStatus] = useState("");
   const [isLogin, setIsLogin] = useState(true);
-  const [activeTab, setActiveTab] = useState("");
+  const [activeTab, setActiveTab] = useState("LOGIN");
   const [passwordError, setPasswordError] = useState("");
 
   const login = async (email) => {
@@ -54,6 +55,8 @@ export default function LoginScreen() {
     firstN,
     lastN,
     birthDate,
+    gender,
+    sexualOrientation,
     setLoginStatus,
     login,
     setPasswordError,
@@ -134,6 +137,10 @@ export default function LoginScreen() {
                   setLastName={setLastN}
                   birthday={birthDate}
                   setBirthday={setBirthDate}
+                  gender={gender}
+                  setGender={setGender}
+                  sexualOrientation={sexualOrientation}
+                  setSexualOrientation={setSexualOrientation}
                   passwordError={passwordError}
                 />
 

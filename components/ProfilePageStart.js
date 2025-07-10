@@ -20,11 +20,11 @@ import LogoutButton from "../components/LogoutButton";
 const { height } = Dimensions.get("window");
 
 export default function ProfilePageStart({ scrollY }) {
-  const [bgColor, setBgColor] = useState("#e3f2fd");
+  const [bgColor, setBgColor] = useState("#ffffff");
   const [photoUrl, setPhotoUrl] = useState("");
   const [selectedBanners, setSelectedBanners] = useState([]);
   const [userName, setUserName] = useState("Loading Name...");
-  const [userAge, setUserAge] = useState("Loading...");
+  const [userAgeGender, setUserAgeGender] = useState("Loading...");
   const navigation = useNavigation();
   const { currentUser } = useUser();
 
@@ -38,7 +38,7 @@ export default function ProfilePageStart({ scrollY }) {
 
   const getProfilePhoto = async () => {
     try {
-      const userEmail = "test2@example.com"; // Replace with actual user email
+      const userEmail = currentUser?.email || "test2@example.com"; // Use actual user email
       const result = await getUserWithPersonality(userEmail);
 
       if (result.success && result.user && result.user.profilePhotoURL) {
@@ -60,7 +60,7 @@ export default function ProfilePageStart({ scrollY }) {
       setPhotoUrl(url);
     };
     loadPhoto();
-  }, []);
+  }, [currentUser]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -79,9 +79,14 @@ export default function ProfilePageStart({ scrollY }) {
           const result = await getUserWithPersonality(userEmail);
 
           if (result.success && result.user) {
+            // Set user name
             if (result.user.firstName && result.user.lastName) {
               setUserName(`${result.user.firstName} ${result.user.lastName}`);
             }
+
+            // Calculate and format age, gender display
+            let ageDisplay = "N/A";
+            let genderDisplay = "N/A";
 
             if (result.user.birthDate) {
               console.log("Birth date from database:", result.user.birthDate);
@@ -90,18 +95,35 @@ export default function ProfilePageStart({ scrollY }) {
                 console.log("Calculated age:", age);
 
                 if (age && !isNaN(age) && age > 0) {
-                  setUserAge(age.toString());
+                  ageDisplay = age.toString();
                 } else {
                   console.warn("Invalid age calculated:", age);
-                  setUserAge("N/A");
+                  ageDisplay = "N/A";
                 }
               } catch (ageError) {
                 console.error("Error calculating age:", ageError);
-                setUserAge("N/A");
+                ageDisplay = "N/A";
               }
             } else {
               console.log("No birth date found in user data");
-              setUserAge("N/A");
+            }
+
+            // Get gender from database
+            if (result.user.gender && result.user.gender.trim() !== "") {
+              genderDisplay = result.user.gender;
+            } else {
+              console.log("No gender found in user data");
+            }
+
+            // Format the combined display
+            if (ageDisplay !== "N/A" && genderDisplay !== "N/A") {
+              setUserAgeGender(`${ageDisplay}, ${genderDisplay}`);
+            } else if (ageDisplay !== "N/A") {
+              setUserAgeGender(`Age: ${ageDisplay}`);
+            } else if (genderDisplay !== "N/A") {
+              setUserAgeGender(genderDisplay);
+            } else {
+              setUserAgeGender("N/A");
             }
 
             if (result.user.profileBackgroundColor) {
@@ -134,7 +156,7 @@ export default function ProfilePageStart({ scrollY }) {
             if (savedColor) {
               setBgColor(savedColor);
             }
-            setUserAge("N/A");
+            setUserAgeGender("N/A");
             setSelectedBanners([]);
           }
         } catch (e) {
@@ -149,12 +171,12 @@ export default function ProfilePageStart({ scrollY }) {
           } catch (asyncError) {
             console.error("Failed to load from AsyncStorage", asyncError);
           }
-          setUserAge("N/A");
+          setUserAgeGender("N/A");
           setSelectedBanners([]);
         }
       };
       loadUserData();
-    }, [])
+    }, [currentUser])
   );
 
   const handleEditPress = () => {
@@ -201,7 +223,7 @@ export default function ProfilePageStart({ scrollY }) {
           <View style={styles.profileInfoContainer}>
             <View style={styles.profileInfoNameContainer}>
               <Text style={styles.nameText}>{userName}</Text>
-              <Text style={styles.ageText}>Age: {userAge}</Text>
+              <Text style={styles.ageText}>{userAgeGender}</Text>
             </View>
             <View style={{bottom:20, right: 155}}>
               <Text style={styles.sectionText}>Stats</Text>

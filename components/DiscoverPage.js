@@ -20,7 +20,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../backend/FirebaseConfig";
-import { calculateAge } from "../backend/UserService";
+import { calculateAge, getUserWithPersonality } from "../backend/UserService";
 import { useUser } from "../contexts/UserContext";
 import SettingsPage from "./SettingsPage";
 import { useNavigation } from "@react-navigation/native";
@@ -34,8 +34,50 @@ function DiscoverMainScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const { currentUser } = useUser();
 
+  const getDefaultGenderPreference = (userGender, userSexualOrientation) => {
+    if (!userSexualOrientation) return 'Both';
+    
+    const orientation = userSexualOrientation.toLowerCase();
+    const gender = userGender?.toLowerCase();
+    
+    if (orientation === 'straight') {
+      if (gender === 'male') return 'Female';
+      if (gender === 'female') return 'Male';
+      return 'Both'; // For other genders
+    } else if (orientation === 'gay') {
+      if (gender === 'male') return 'Male';
+      if (gender === 'female') return 'Female';
+      return 'Both'; // For other genders
+    } else if (orientation === 'bisexual') {
+      return 'Both';
+    } else {
+      return 'Both'; // For other orientations
+    }
+  };
+
   const loadProfiles = async () => {
     try {
+      // Get current user's preferences
+      const currentUserEmail = currentUser?.email;
+      if (!currentUserEmail) return;
+
+      const currentUserData = await getUserWithPersonality(currentUserEmail);
+      
+      let genderPreference = 'Both';
+      
+      if (currentUserData.success && currentUserData.user) {
+        // Check if user has set a gender preference
+        if (currentUserData.user.locationSettings?.genderPreference) {
+          genderPreference = currentUserData.user.locationSettings.genderPreference;
+        } else {
+          // Use default based on sexual orientation
+          genderPreference = getDefaultGenderPreference(
+            currentUserData.user.gender,
+            currentUserData.user.sexualOrientation
+          );
+        }
+      }
+
       const usersCollection = collection(db, "users");
       const snapshot = await getDocs(usersCollection);
       const profiles = [];
@@ -43,10 +85,25 @@ function DiscoverMainScreen({ navigation }) {
       snapshot.forEach((doc) => {
         const userData = doc.data();
         if (userData.email !== currentUser?.email) {
-          profiles.push({
-            id: doc.id,
-            ...userData,
-          });
+          // Filter based on gender preference
+          const userGender = userData.gender;
+          
+          if (genderPreference === 'Both') {
+            profiles.push({
+              id: doc.id,
+              ...userData,
+            });
+          } else if (genderPreference === 'Male' && userGender === 'Male') {
+            profiles.push({
+              id: doc.id,
+              ...userData,
+            });
+          } else if (genderPreference === 'Female' && userGender === 'Female') {
+            profiles.push({
+              id: doc.id,
+              ...userData,
+            });
+          }
         }
       });
 
@@ -131,10 +188,21 @@ function DiscoverMainScreen({ navigation }) {
       const age = currentProfile.birthDate
         ? calculateAge(currentProfile.birthDate)
         : "N/A";
+      const gender = currentProfile.gender || "N/A";
       const name =
         currentProfile.firstName && currentProfile.lastName
           ? `${currentProfile.firstName} ${currentProfile.lastName}`
           : "Anonymous User";
+
+      // Format age and gender display
+      let ageGenderDisplay = "N/A";
+      if (age !== "N/A" && gender !== "N/A") {
+        ageGenderDisplay = `${age}, ${gender}`;
+      } else if (age !== "N/A") {
+        ageGenderDisplay = `Age: ${age}`;
+      } else if (gender !== "N/A") {
+        ageGenderDisplay = gender;
+      }
 
       const bgColor = currentProfile.profileBackgroundColor || "#e3f2fd";
       const banners = currentProfile.selectedProfileBanners || [];
@@ -164,7 +232,7 @@ function DiscoverMainScreen({ navigation }) {
 
             <View style={styles.infoContainer}>
               <Text style={styles.nameText}>{name}</Text>
-              <Text style={styles.ageText}>{age}</Text>
+              <Text style={styles.ageText}>{ageGenderDisplay}</Text>
             </View>
 
             <View style={styles.bannersContainer}>
