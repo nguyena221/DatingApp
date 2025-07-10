@@ -26,6 +26,7 @@ import {
 import { db } from "../backend/FirebaseConfig";
 import { Ionicons } from "@expo/vector-icons";
 import ViewUserProfile from "../components/ViewUserProfile";
+import { updateDoc } from "firebase/firestore";
 
 export default function ChatRoom({ route }) {
   const { chatId, otherUser, currentUserEmail } = route.params;
@@ -73,6 +74,21 @@ export default function ChatRoom({ route }) {
     fetchColorAndUser();
   }, [otherUser]);
 
+  useEffect(() => {
+    const markAsRead = async () => {
+      const chatRef = doc(db, "chats", chatId);
+      try {
+        await updateDoc(chatRef, {
+          [`unreadCount.${currentUserEmail}`]: 0,
+        });
+      } catch (err) {
+        console.error("❌ Failed to mark as read:", err);
+      }
+    };
+
+    markAsRead();
+  }, [chatId, currentUserEmail]);
+
   const sendMessage = async () => {
     if (!input.trim()) return;
 
@@ -82,7 +98,27 @@ export default function ChatRoom({ route }) {
         sender: currentUserEmail,
         timestamp: serverTimestamp(),
       });
-      console.log("✅ Message saved successfully!");
+
+      // Update unreadCount and lastMessage
+      const chatRef = doc(db, "chats", chatId);
+      const chatSnap = await getDoc(chatRef);
+
+      if (chatSnap.exists()) {
+        const data = chatSnap.data();
+        const otherUser = data.participants.find((p) => p !== currentUserEmail);
+        const currentCounts = data.unreadCount || {};
+        const otherCount = currentCounts[otherUser] || 0;
+
+        await updateDoc(chatRef, {
+          lastMessage: input.trim(),
+          lastTimestamp: serverTimestamp(),
+          unreadCount: {
+            ...currentCounts,
+            [otherUser]: otherCount + 1,
+          },
+        });
+      }
+
       setInput("");
     } catch (err) {
       console.error("❌ Failed to send message:", err);
