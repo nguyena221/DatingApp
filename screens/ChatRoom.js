@@ -145,7 +145,6 @@ export default function ChatRoom({ route }) {
     <KeyboardAvoidingView
       style={{ flex: 1 }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={80}
     >
       <LinearGradient colors={[bgColor, "#f8f9fa"]} style={styles.gradient}>
         {renderHeader()}
@@ -177,7 +176,11 @@ export default function ChatRoom({ route }) {
             />
             <TouchableOpacity onPress={sendMessage}>
               <LinearGradient
-                colors={[bgColor, bgColor || "#667eea", "#667eea"]}
+                colors={
+                  bgColor && bgColor !== "#f8f9fa"
+                    ? [bgColor, "#f8f9fa"] // custom gradient
+                    : ["#667eea", "#667eea"] // solid fallback
+                }
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.sendButtonGradient}
@@ -250,12 +253,28 @@ const styles = StyleSheet.create({
     maxWidth: "75%",
   },
   myMessage: {
-    backgroundColor: "#f8f9fa",
+    backgroundColor: "#ebebeb",
     alignSelf: "flex-end",
+    // Shadow (iOS)
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+
+    // Shadow (Android)
+    elevation: 4,
   },
   theirMessage: {
     backgroundColor: "#f1f1f1",
     alignSelf: "flex-start",
+    // Shadow (iOS)
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+
+    // Shadow (Android)
+    elevation: 4,
   },
   messageText: {
     fontSize: 16,

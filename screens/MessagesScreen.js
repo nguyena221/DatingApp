@@ -77,12 +77,35 @@ export default function MessagesScreen() {
           let lastSender = "";
 
           try {
-            const messageSnap = await getDocs(messagesQuery);
-            if (!messageSnap.empty) {
-              const messageData = messageSnap.docs[0].data();
-              lastMessage = messageData.text || "";
-              lastSender = messageData.sender || "";
-            }
+            const messageSnapPromise = new Promise((resolve) => {
+              const unsubscribeMessage = onSnapshot(
+                messagesQuery,
+                (messageSnap) => {
+                  let msg = "No Messages Available";
+                  let sender = "";
+
+                  if (!messageSnap.empty) {
+                    const messageData = messageSnap.docs[0].data();
+                    msg = messageData.text || "No Messages Available";
+                    sender = messageData.sender || "";
+                  }
+
+                  unsubscribeMessage(); // Stop listening after the first snapshot
+                  resolve({ msg, sender });
+                },
+                (error) => {
+                  console.error(
+                    "Error fetching last message in real-time:",
+                    error
+                  );
+                  resolve({ msg: "No Messages Available", sender: "" });
+                }
+              );
+            });
+
+            const { msg, sender } = await messageSnapPromise;
+            lastMessage = msg;
+            lastSender = sender;
           } catch (err) {
             console.error("Error fetching last message:", err);
           }
