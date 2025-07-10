@@ -29,7 +29,7 @@ export default function LoginScreen() {
   const { login: contextLogin } = useUser();
 
   const [email, setEmail] = useState("test2@example.com");
-  const [pass, setPass] = useState("pass123");
+  const [pass, setPass] = useState("hejehahh");
   const [firstN, setFirstN] = useState("Annie");
   const [lastN, setLastN] = useState("Doe");
   const [birthDate, setBirthDate] = useState();
