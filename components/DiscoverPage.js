@@ -125,14 +125,32 @@ function DiscoverMainScreen({ navigation }) {
             <View style={styles.bannersContainer}>
               {banners && banners.length > 0 ? (
                 banners.slice(0, 3).map((banner, index) => (
-                  <View key={index} style={styles.bannerRow}>
-                    <Text style={styles.bannerLabel}>
+                  <LinearGradient
+                    key={banner.id || index}
+                    colors={banner.gradient || ["#f0f0f0", "#e0e0e0"]}
+                    style={styles.bannerRow}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <Text
+                      style={
+                        banner.textColor === "white"
+                          ? styles.bannerLabel
+                          : styles.bannerLabelDark
+                      }
+                    >
                       {banner?.label || "Unknown"}
                     </Text>
-                    <Text style={styles.bannerValue}>
+                    <Text
+                      style={
+                        banner.textColor === "white"
+                          ? styles.bannerValue
+                          : styles.bannerValueDark
+                      }
+                    >
                       {banner?.value || "N/A"}
                     </Text>
-                  </View>
+                  </LinearGradient>
                 ))
               ) : (
                 <View style={styles.noQuizzesContainer}>
@@ -328,17 +346,26 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 15,
-    backgroundColor: "rgba(255, 255, 255, 0.7)",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 20,
   },
   bannerLabel: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#333",
+    color: "white",
   },
   bannerValue: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "white",
+  },
+  bannerLabelDark: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333",
+  },
+  bannerValueDark: {
     fontSize: 14,
     fontWeight: "500",
     color: "#333",
@@ -364,34 +391,53 @@ const styles = StyleSheet.create({
   buttonContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    gap: 10,
-    marginTop: 10,
+    gap: 12,
+    marginTop: 15,
+    paddingHorizontal: 5,
   },
   viewProfileButton: {
     backgroundColor: "#007AFF",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 25,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 28,
     alignItems: "center",
+    justifyContent: "center",
     flex: 1,
+    shadowColor: "#007AFF",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 5,
+    minHeight: 50,
   },
   viewProfileButtonText: {
     color: "white",
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
+    textAlign: "center",
+    letterSpacing: 0.5,
   },
   nextButton: {
     backgroundColor: "#34C759",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 25,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 28,
     alignItems: "center",
+    justifyContent: "center",
     flex: 1,
+    shadowColor: "#34C759",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 5,
+    minHeight: 50,
   },
   nextButtonText: {
     color: "white",
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
+    textAlign: "center",
+    letterSpacing: 0.5,
   },
   loadingContainer: {
     justifyContent: "center",

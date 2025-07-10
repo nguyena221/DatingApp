@@ -18,6 +18,7 @@ import QuizWithFirebase from './components/PersonalityQuiz';
 import LifestyleQuizWithFirebase from './components/LifestyleQuiz';
 import MessagesScreen from './screens/MessagesScreen';
 import ChatRoom from './screens/ChatRoom';
+import ViewUserProfile from './components/ViewUserProfile'; // Add this import
 
 import AddBookScreen from './components/AddBookScreen';
 import AddMovieScreen from './components/AddMovieScreen';
@@ -27,7 +28,6 @@ import AddTVShowScreen from './components/AddTVShowScreen';
 import AddFitnessGoalScreen from './components/AddFitnessGoalScreen';
 import AddHobbySkillScreen from './components/AddHobbySkillScreen';
 import AddLifeGoalScreen from './components/AddLifeGoalScreen';
-
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -100,6 +100,16 @@ function AppNavigator() {
     >
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Home" component={TabNavigator} />
+
+      {/* Add ViewUserProfile screen here */}
+      <Stack.Screen
+        name="ViewUserProfile"
+        component={ViewUserProfile}
+        options={{
+          headerShown: false,
+          presentation: 'card',
+        }}
+      />
 
       <Stack.Screen
         name="EditProfile"
