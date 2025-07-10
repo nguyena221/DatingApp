@@ -222,7 +222,7 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
                     if (savedWidgets && savedWidgets.length > 0) {
                         setSelectedWidgets(savedWidgets);
                     } else {
-                        setSelectedWidgets(['travel', 'movies', 'books', 'foodie', 'tvshows', 'fitness', 'hobbies']);
+                        setSelectedWidgets(['travel', 'tvshows', 'books', 'fitness']);
                     }
                 }
 
@@ -727,6 +727,7 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
                                         </TouchableOpacity>
                                     );
                                 })}
+                                <View style={{bottom: 30, height:20}}/>
                             </View>
                         </View>
                     </ScrollView>
@@ -963,17 +964,28 @@ const styles = StyleSheet.create({
         flexWrap: 'wrap',
         gap: 12,
         justifyContent: 'space-between',
+        paddingBottom: 10,
+        marginBottom: 0,
     },
     widgetOption: {
         width: '48%', // 2 widgets per row
         borderRadius: 15,
         overflow: 'hidden',
-        marginBottom: 12,
+        marginBottom: 0,
+        paddingBottom: 0,
     },
     selectedWidget: {
-        borderWidth: 3,
-        borderColor: '#007AFF',
-    },
+    shadowColor: '#007AFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 3,
+    elevation: 8,
+    borderRadius: 15,
+    // Add a subtle inner shadow effect
+    borderWidth: 3,
+    borderColor: '#007AFF',
+    marginBottom: 15, // Keep consistent spacing
+},
     comingSoonWidget: {
         opacity: 0.6,
     },
