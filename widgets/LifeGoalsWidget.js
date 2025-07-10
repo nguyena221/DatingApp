@@ -227,7 +227,7 @@ const LifeGoalsWidget = ({ navigation }) => {
     const CompactWidget = () => (
         <TouchableOpacity onPress={openExpanded} style={styles.widgetContainer} activeOpacity={0.8}>
             <LinearGradient
-                colors={['#fa709a', '#fee140']}
+                colors={['#c61225', '#f5934b']}
                 style={styles.container}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
@@ -279,9 +279,9 @@ const LifeGoalsWidget = ({ navigation }) => {
             presentationStyle="fullScreen"
             onRequestClose={closeExpanded}
         >
-            <StatusBar barStyle="light-content" backgroundColor="#fa709a" />
+            <StatusBar barStyle="light-content" backgroundColor="#c61225" />
             <LinearGradient
-                colors={['#fa709a', '#fee140']}
+                colors={['#c61225', '#f5934b']}
                 style={styles.expandedContainer}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}

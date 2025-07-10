@@ -107,10 +107,10 @@ export default function AddLifeGoalScreen({ navigation }) {
 
     return (
         <View style={styles.fullContainer}>
-            <StatusBar backgroundColor="#fa709a" barStyle="light-content" />
+            <StatusBar backgroundColor="#f5934b" barStyle="light-content" />
             <SafeAreaView style={styles.safeArea}>
                 <LinearGradient
-                    colors={['#fa709a', '#fee140']}
+                    colors={['#c61225', '#f5934b']}
                     style={styles.container}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
@@ -290,7 +290,7 @@ export default function AddLifeGoalScreen({ navigation }) {
 const styles = StyleSheet.create({
     fullContainer: { 
         flex: 1, 
-        backgroundColor: '#fa709a' 
+        backgroundColor: '#f5934b' 
     },
     container: { 
         flex: 1 

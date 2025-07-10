@@ -89,10 +89,10 @@ export default function AddBookScreen({ navigation }) {
 
     return (
         <View style={styles.fullContainer}>
-            <StatusBar backgroundColor="#8e44ad" barStyle="light-content" />
+            <StatusBar backgroundColor="#03af92" barStyle="light-content" />
             <SafeAreaView style={styles.safeArea}>
                 <LinearGradient
-                    colors={['#8e44ad', '#3498db']}
+                    colors={['#03af92', '#eef736']}
                     style={styles.container}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
@@ -317,7 +317,7 @@ export default function AddBookScreen({ navigation }) {
 const styles = StyleSheet.create({
     fullContainer: { 
         flex: 1, 
-        backgroundColor: '#8e44ad' 
+        backgroundColor: '#eef736' 
     },
     container: { 
         flex: 1 

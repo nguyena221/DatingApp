@@ -17,7 +17,7 @@ import LifeGoalsWidget from '../widgets/LifeGoalsWidget';
 
 export default function ProfilePageWidgets() {
     const [bgColor, setBgColor] = useState('#e3f2fd');
-    const [selectedWidgets, setSelectedWidgets] = useState(['travel', 'movies', 'books', 'foodie', 'tvshows', 'fitnessgoals', 'hobbies']);
+    const [selectedWidgets, setSelectedWidgets] = useState(['travel', 'tvshows', 'books', 'fitness']);
     const { currentUser } = useUser();
     const navigation = useNavigation();
 
