@@ -28,6 +28,7 @@ export default function LoginScreen() {
   const navigation = useNavigation();
   const { login: contextLogin } = useUser();
 
+
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
   const [firstN, setFirstN] = useState("");

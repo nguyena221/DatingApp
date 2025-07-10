@@ -24,7 +24,7 @@ import {
 
 const { width, height } = Dimensions.get('window');
 
-const FavoriteBooksWidget = ({ navigation }) => {
+const FavoriteBooksWidget = ({ navigation, userData, viewOnly = false }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [books, setBooks] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -34,20 +34,28 @@ const FavoriteBooksWidget = ({ navigation }) => {
     useFocusEffect(
         useCallback(() => {
             loadBooksFromDatabase();
-        }, [])
+        }, [userData, viewOnly])
     );
 
     const loadBooksFromDatabase = async () => {
         try {
             setLoading(true);
-            const userEmail = user?.email || "test2@example.com";
-            const result = await getUserWidgetData(userEmail, 'books');
             
-            if (result.success && result.data) {
-                setBooks(result.data.books || []);
+            if (viewOnly && userData) {
+                // For viewing other users, use the data passed in userData
+                const booksData = userData.widgetData?.books?.books || [];
+                setBooks(booksData);
             } else {
-                console.log("No books data found, starting with empty array");
-                setBooks([]);
+                // For own profile, fetch from database as usual
+                const userEmail = user?.email || "test2@example.com";
+                const result = await getUserWidgetData(userEmail, 'books');
+                
+                if (result.success && result.data) {
+                    setBooks(result.data.books || []);
+                } else {
+                    console.log("No books data found, starting with empty array");
+                    setBooks([]);
+                }
             }
         } catch (error) {
             console.error("Error loading books:", error);
@@ -70,8 +78,10 @@ const FavoriteBooksWidget = ({ navigation }) => {
         setIsExpanded(false);
     };
 
-    // Navigate to AddBook screen (similar to EditProfile navigation)
+    // Navigate to AddBook screen (only for own profile)
     const handleAddBook = () => {
+        if (viewOnly) return; // Don't allow adding for other users
+        
         console.log('📚 Navigating to AddBook screen');
         console.log('📚 Navigation object:', navigation);
         
@@ -86,7 +96,7 @@ const FavoriteBooksWidget = ({ navigation }) => {
                 console.error('❌ Navigation not available');
                 Alert.alert('Error', 'Navigation not available. Please try again.');
             }
-        }, 300); // Small delay to ensure modal close animation completes
+        }, 300);
     };
 
     const openGoodreadsLink = async (url) => {
@@ -105,6 +115,8 @@ const FavoriteBooksWidget = ({ navigation }) => {
     };
 
     const handleRemoveBook = async (bookId) => {
+        if (viewOnly) return; // Don't allow removing for other users
+        
         console.log('🗑️ handleRemoveBook called with bookId:', bookId);
         
         Alert.alert(
@@ -147,6 +159,8 @@ const FavoriteBooksWidget = ({ navigation }) => {
     };
 
     const handleUpdateBookRating = async (bookId, newRating) => {
+        if (viewOnly) return; // Don't allow editing for other users
+        
         try {
             const userEmail = user?.email || "test2@example.com";
             const result = await updateWidgetItem(userEmail, 'books', bookId, { rating: newRating });
@@ -167,12 +181,15 @@ const FavoriteBooksWidget = ({ navigation }) => {
     };
 
     const renderStars = (rating, size = 12, interactive = false, bookId = null) => {
+        // Disable interactivity if in viewOnly mode
+        const isInteractive = interactive && !viewOnly;
+        
         return Array.from({ length: 5 }, (_, i) => (
             <TouchableOpacity
                 key={i}
-                disabled={!interactive}
-                onPress={interactive ? () => handleUpdateBookRating(bookId, i + 1) : undefined}
-                activeOpacity={interactive ? 0.7 : 1}
+                disabled={!isInteractive}
+                onPress={isInteractive ? () => handleUpdateBookRating(bookId, i + 1) : undefined}
+                activeOpacity={isInteractive ? 0.7 : 1}
             >
                 <Text style={[styles.star, { fontSize: size }]}>
                     {i < rating ? '★' : '☆'}
@@ -199,8 +216,34 @@ const FavoriteBooksWidget = ({ navigation }) => {
         }
     };
 
-    // Swipeable book item component
+    // Get the title based on viewOnly mode
+    const getTitle = () => {
+        if (viewOnly && userData) {
+            const name = userData.firstName || 'User';
+            return `📖 Book Shelf`;
+        }
+        return '📖 Book Shelf';
+    };
+
+    const getExpandedTitle = () => {
+        if (viewOnly && userData) {
+            const name = userData.firstName || 'User';
+            return `📖 ${name}'s Reading Journey`;
+        }
+        return '📖 My Reading Journey';
+    };
+
+    // Swipeable book item component (only for own profile)
     const SwipeableBookItem = ({ book, onRemove, children }) => {
+        if (viewOnly) {
+            // For viewOnly mode, return regular non-swipeable item
+            return (
+                <View style={styles.swipeableContainer}>
+                    {children}
+                </View>
+            );
+        }
+
         const translateX = new Animated.Value(0);
 
         const onSwipeLeft = () => {
@@ -256,13 +299,13 @@ const FavoriteBooksWidget = ({ navigation }) => {
     const CompactWidget = () => (
         <TouchableOpacity onPress={openExpanded} style={styles.widgetContainer} activeOpacity={0.8}>
             <LinearGradient
-                colors={['#8e44ad', '#3498db']}
+                colors={['#03af92', '#eef736']}
                 style={styles.container}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
             >
                 <View style={styles.header}>
-                    <Text style={styles.title}>📖 Book Shelf</Text>
+                    <Text style={styles.title}>{getTitle()}</Text>
                     <View style={styles.statsRow}>
                         <Text style={styles.stat}>{readBooks.length} read</Text>
                         <Text style={styles.stat}>★ {averageRating} avg</Text>
@@ -312,9 +355,9 @@ const FavoriteBooksWidget = ({ navigation }) => {
             presentationStyle="fullScreen"
             onRequestClose={closeExpanded}
         >
-            <StatusBar barStyle="light-content" backgroundColor="#8e44ad" />
+            <StatusBar barStyle="light-content" backgroundColor="#03af92" />
             <LinearGradient
-                colors={['#8e44ad', '#3498db']}
+                colors={['#03af92', '#eef736']}
                 style={styles.expandedContainer}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
@@ -325,7 +368,7 @@ const FavoriteBooksWidget = ({ navigation }) => {
                         <TouchableOpacity onPress={closeExpanded} style={styles.closeButton} activeOpacity={0.7}>
                             <Text style={styles.closeButtonText}>✕</Text>
                         </TouchableOpacity>
-                        <Text style={styles.expandedTitle}>📖 My Reading Journey</Text>
+                        <Text style={styles.expandedTitle}>{getExpandedTitle()}</Text>
                         <View style={styles.placeholder} />
                     </View>
 
@@ -367,8 +410,15 @@ const FavoriteBooksWidget = ({ navigation }) => {
                     >
                         {books.length === 0 ? (
                             <View style={styles.emptyState}>
-                                <Text style={styles.emptyStateText}>No books in your collection yet!</Text>
-                                <Text style={styles.emptyStateSubtext}>Add your first book to get started</Text>
+                                <Text style={styles.emptyStateText}>
+                                    {viewOnly ? 'No books in collection yet!' : 'No books in your collection yet!'}
+                                </Text>
+                                <Text style={styles.emptyStateSubtext}>
+                                    {viewOnly 
+                                        ? 'This user hasn\'t added any books yet' 
+                                        : 'Add your first book to get started'
+                                    }
+                                </Text>
                             </View>
                         ) : (
                             books.map((book) => (
@@ -377,6 +427,7 @@ const FavoriteBooksWidget = ({ navigation }) => {
                                         style={styles.expandedBookItem}
                                         onPress={() => openGoodreadsLink(book.goodreadsUrl)}
                                         activeOpacity={0.7}
+                                        disabled={!book.goodreadsUrl}
                                     >
                                         <View style={styles.expandedBookHeader}>
                                             <View style={styles.bookLeft}>
@@ -396,23 +447,27 @@ const FavoriteBooksWidget = ({ navigation }) => {
                                                     </View>
                                                 </View>
                                             </View>
+                                            
                                             <View style={styles.bookActions}>
                                                 {book.goodreadsUrl && (
                                                     <View style={styles.goodreadsIcon}>
                                                         <Text style={styles.goodreadsText}>📱</Text>
                                                     </View>
                                                 )}
-                                                {/* ✅ ADD VISIBLE DELETE BUTTON */}
-                                                <TouchableOpacity
-                                                    style={styles.deleteIconButton}
-                                                    onPress={() => {
-                                                        console.log('🗑️ Delete button pressed for book:', book.id, book.title);
-                                                        handleRemoveBook(book.id);
-                                                    }}
-                                                    activeOpacity={0.7}
-                                                >
-                                                    <Text style={styles.deleteIconText}>🗑️</Text>
-                                                </TouchableOpacity>
+                                                
+                                                {/* Only show delete button if not in viewOnly mode */}
+                                                {!viewOnly && (
+                                                    <TouchableOpacity
+                                                        style={styles.deleteIconButton}
+                                                        onPress={() => {
+                                                            console.log('🗑️ Delete button pressed for book:', book.id, book.title);
+                                                            handleRemoveBook(book.id);
+                                                        }}
+                                                        activeOpacity={0.7}
+                                                    >
+                                                        <Text style={styles.deleteIconText}>🗑️</Text>
+                                                    </TouchableOpacity>
+                                                )}
                                             </View>
                                         </View>
                                         {book.review && (
@@ -424,14 +479,16 @@ const FavoriteBooksWidget = ({ navigation }) => {
                         )}
                     </ScrollView>
 
-                    {/* Add Button - Navigate like EditProfile */}
-                    <TouchableOpacity 
-                        style={styles.expandedAddButton}
-                        onPress={handleAddBook}
-                        activeOpacity={0.8}
-                    >
-                        <Text style={styles.expandedAddButtonText}>+ Add New Book</Text>
-                    </TouchableOpacity>
+                    {/* Add Button - Only show if not in viewOnly mode */}
+                    {!viewOnly && (
+                        <TouchableOpacity 
+                            style={styles.expandedAddButton}
+                            onPress={handleAddBook}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={styles.expandedAddButtonText}>+ Add New Book</Text>
+                        </TouchableOpacity>
+                    )}
                 </SafeAreaView>
             </LinearGradient>
         </Modal>

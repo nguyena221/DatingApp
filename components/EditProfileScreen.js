@@ -222,7 +222,7 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
                     if (savedWidgets && savedWidgets.length > 0) {
                         setSelectedWidgets(savedWidgets);
                     } else {
-                        setSelectedWidgets(['travel', 'movies', 'books', 'foodie', 'tvshows', 'fitness', 'hobbies']);
+                        setSelectedWidgets(['travel', 'tvshows', 'books', 'fitness']);
                     }
                 }
 
@@ -247,7 +247,7 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
                         name: 'Book Shelf',
                         description: 'Reading list and book reviews',
                         emoji: '📖',
-                        color: ['#8e44ad', '#3498db']
+                        color: ['#03af92', '#eef736']
                     },
                     {
                         id: 'foodie',
@@ -282,7 +282,7 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
                         name: 'Life Goals',
                         description: 'Dreams and aspirations',
                         emoji: '🎯',
-                        color: ['#fa709a', '#fee140'],
+                        color: ['#c61225', '#f5934b'],
                     }
                 ];
                 setAvailableWidgets(widgets);
@@ -491,7 +491,8 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
                     <Text style={styles.quizPromptText}>
                         Take our personality and lifestyle quizzes to unlock personalized profile banners that show off your unique traits!
                     </Text>
-                    <TouchableOpacity style={styles.quizButton}>
+                    <TouchableOpacity style={styles.quizButton}
+                    onPress={() => navigation.navigate('Home')}>
                         <Text style={styles.quizButtonText}>Take Quizzes</Text>
                     </TouchableOpacity>
                 </View>
@@ -567,16 +568,6 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
 
                         {/* Profile Info */}
                         <View style={styles.profileInfoContainer}>
-                            <View style={styles.profileInfoNameContainer}>
-                                <TouchableOpacity style={styles.editableField}>
-                                    <Text style={styles.nameText}>{userName}</Text>
-                                    <Text style={styles.editHint}>Tap to edit</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity style={styles.editableField}>
-                                    <Text style={styles.ageText}>{userAge}</Text>
-                                    <Text style={styles.editHint}>Tap to edit</Text>
-                                </TouchableOpacity>
-                            </View>
 
                             {/* Background Color Picker */}
                             <View style={styles.colorPickerContainer}>
@@ -599,6 +590,8 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
                                     ))}
                                 </View>
                             </View>
+
+                            <View style={{height:40}} />
 
                             {/* Quiz Prompt or Banner Selection */}
                             {(!quizStatus.personality && !quizStatus.lifestyle) ? (
@@ -727,6 +720,7 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
                                         </TouchableOpacity>
                                     );
                                 })}
+                                <View style={{bottom: 30, height:20}}/>
                             </View>
                         </View>
                     </ScrollView>
@@ -963,24 +957,31 @@ const styles = StyleSheet.create({
         flexWrap: 'wrap',
         gap: 12,
         justifyContent: 'space-between',
+        paddingBottom: 10,
+        marginBottom: 0,
     },
     widgetOption: {
         width: '48%', // 2 widgets per row
-        borderRadius: 15,
-        overflow: 'hidden',
-        marginBottom: 12,
+        borderRadius: 15, // Keep this for the shadow shape
+        // Remove overflow: 'hidden' to allow shadow to show
+        marginBottom: 15,
     },
     selectedWidget: {
-        borderWidth: 3,
-        borderColor: '#007AFF',
-    },
-    comingSoonWidget: {
-        opacity: 0.6,
+        shadowColor: '#007AFF',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.8,
+        shadowRadius: 4,
+        elevation: 8,
     },
     widgetGradient: {
         padding: 16,
         minHeight: 120,
         position: 'relative',
+        borderRadius: 15, // Move the visual borderRadius here
+        overflow: 'hidden', // Move overflow hidden to the gradient to clip content
+    },
+    comingSoonWidget: {
+        opacity: 0.6,
     },
     comingSoonGradient: {
         opacity: 0.7,

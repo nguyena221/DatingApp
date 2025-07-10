@@ -6,22 +6,17 @@ import {
   SafeAreaView,
   TouchableOpacity,
   Image,
-  Dimensions,
 } from "react-native";
 import React, { useState, useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import LogoutButton from "../components/LogoutButton";
 import {
   collection,
   getDocs,
-  getDoc,
-  setDoc,
   addDoc,
   query,
   where,
-  doc,
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../backend/FirebaseConfig";
@@ -29,6 +24,7 @@ import { calculateAge } from "../backend/UserService";
 import { useUser } from "../contexts/UserContext";
 import SettingsPage from "./SettingsPage";
 import { useNavigation } from "@react-navigation/native";
+import ViewUserProfile from "./ViewUserProfile";
 
 const DiscoverStack = createNativeStackNavigator();
 
@@ -120,6 +116,14 @@ function DiscoverMainScreen({ navigation }) {
     }
   };
 
+  const handleProfilePress = () => {
+    if (currentProfile) {
+      navigation.navigate("ViewUserProfile", {
+        userData: currentProfile,
+      });
+    }
+  };
+
   const renderProfileCard = () => {
     if (!currentProfile) return null;
 
@@ -136,65 +140,102 @@ function DiscoverMainScreen({ navigation }) {
       const banners = currentProfile.selectedProfileBanners || [];
 
       return (
-        <LinearGradient
-          colors={[bgColor, "#ffffff"]}
-          style={styles.profileCard}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-        >
-          <View style={styles.photoContainer}>
-            <View style={styles.photoFrame}>
-              {currentProfile.profilePhotoURL ? (
-                <Image
-                  source={{ uri: currentProfile.profilePhotoURL }}
-                  style={styles.profilePhoto}
-                />
+        <TouchableOpacity onPress={handleProfilePress} activeOpacity={0.9}>
+          <LinearGradient
+            colors={[bgColor, "#ffffff"]}
+            style={styles.profileCard}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+          >
+            <View style={styles.photoContainer}>
+              <View style={styles.photoFrame}>
+                {currentProfile.profilePhotoURL ? (
+                  <Image
+                    source={{ uri: currentProfile.profilePhotoURL }}
+                    style={styles.profilePhoto}
+                  />
+                ) : (
+                  <View style={styles.placeholderPhoto}>
+                    <Ionicons name="person" size={60} color="#ccc" />
+                  </View>
+                )}
+              </View>
+            </View>
+
+            <View style={styles.infoContainer}>
+              <Text style={styles.nameText}>{name}</Text>
+              <Text style={styles.ageText}>{age}</Text>
+            </View>
+
+            <View style={styles.bannersContainer}>
+              {banners && banners.length > 0 ? (
+                banners.slice(0, 3).map((banner, index) => (
+                  <LinearGradient
+                    key={banner.id || index}
+                    colors={banner.gradient || ["#f0f0f0", "#e0e0e0"]}
+                    style={styles.bannerRow}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <Text
+                      style={
+                        banner.textColor === "white"
+                          ? styles.bannerLabel
+                          : styles.bannerLabelDark
+                      }
+                    >
+                      {banner?.label || "Unknown"}
+                    </Text>
+                    <Text
+                      style={
+                        banner.textColor === "white"
+                          ? styles.bannerValue
+                          : styles.bannerValueDark
+                      }
+                    >
+                      {banner?.value || "N/A"}
+                    </Text>
+                  </LinearGradient>
+                ))
               ) : (
-                <View style={styles.placeholderPhoto}>
-                  <Ionicons name="person" size={60} color="#ccc" />
+                <View style={styles.noQuizzesContainer}>
+                  <Text style={styles.noQuizzesEmoji}>🎯</Text>
+                  <Text style={styles.noQuizzesText}>
+                    This user hasn't completed any quizzes yet
+                  </Text>
                 </View>
               )}
             </View>
-          </View>
 
-          <View style={styles.infoContainer}>
-            <Text style={styles.nameText}>{name}</Text>
-            <Text style={styles.ageText}>{age}</Text>
-          </View>
-
-          <View style={styles.bannersContainer}>
-            {banners && banners.length > 0 ? (
-              banners.slice(0, 3).map((banner, index) => (
-                <View key={index} style={styles.bannerRow}>
-                  <Text style={styles.bannerLabel}>
-                    {banner?.label || "Unknown"}
-                  </Text>
-                  <Text style={styles.bannerValue}>
-                    {banner?.value || "N/A"}
-                  </Text>
-                </View>
-              ))
-            ) : (
-              <View style={styles.noQuizzesContainer}>
-                <Text style={styles.noQuizzesEmoji}>🎯</Text>
-                <Text style={styles.noQuizzesText}>
-                  This user hasn't completed any quizzes yet
-                </Text>
+            <TouchableOpacity
+              style={styles.messageButton}
+              onPress={() => startChat(currentProfile)}
+            >
+              <View style={styles.iconButtonContent}>
+                <Ionicons
+                  name="send"
+                  size={18}
+                  color="#007AFF"
+                  style={styles.icon}
+                />
+                <Text style={styles.messageButtonText}>Message</Text>
               </View>
-            )}
-          </View>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.messageButton}
-            onPress={() => startChat(currentProfile)}
-          >
-            <Text style={styles.messageButtonText}>Message This User</Text>
-          </TouchableOpacity>
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity
+                style={styles.viewProfileButton}
+                onPress={handleProfilePress}
+              >
+                <Text style={styles.viewProfileButtonText}>View Profile</Text>
+              </TouchableOpacity>
 
-          <TouchableOpacity style={styles.nextButton} onPress={nextProfile}>
-            <Text style={styles.nextButtonText}>Next Profile →</Text>
-          </TouchableOpacity>
-        </LinearGradient>
+              <TouchableOpacity style={styles.nextButton} onPress={nextProfile}>
+                <Text style={styles.nextButtonText}>Next →</Text>
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
+        </TouchableOpacity>
       );
     } catch (error) {
       console.error("Error rendering profile:", error);
@@ -261,6 +302,14 @@ export default function DiscoverPage() {
           headerTitle: "Settings",
           headerBackTitle: "Back",
           presentation: "modal",
+        }}
+      />
+      <DiscoverStack.Screen
+        name="ViewUserProfile"
+        component={ViewUserProfile}
+        options={{
+          headerShown: false,
+          presentation: "card",
         }}
       />
     </DiscoverStack.Navigator>
@@ -360,17 +409,26 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 15,
-    backgroundColor: "rgba(255, 255, 255, 0.7)",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 20,
   },
   bannerLabel: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#333",
+    color: "white",
   },
   bannerValue: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "white",
+  },
+  bannerLabelDark: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333",
+  },
+  bannerValueDark: {
     fontSize: 14,
     fontWeight: "500",
     color: "#333",
@@ -393,6 +451,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontStyle: "italic",
   },
+
   messageButton: {
     borderWidth: 2,
     borderColor: "#007AFF",
@@ -402,25 +461,61 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 10,
   },
-
   messageButtonText: {
     color: "#007AFF",
     fontSize: 16,
     fontWeight: "600",
   },
-
-  nextButton: {
+  buttonContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+    marginTop: 15,
+    paddingHorizontal: 5,
+  },
+  viewProfileButton: {
     backgroundColor: "#007AFF",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 25,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 28,
     alignItems: "center",
-    marginTop: 10,
+    justifyContent: "center",
+    flex: 1,
+    shadowColor: "#007AFF",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 5,
+    minHeight: 50,
+  },
+  viewProfileButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "700",
+    textAlign: "center",
+    letterSpacing: 0.5,
+  },
+  nextButton: {
+    backgroundColor: "#34C759",
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    flex: 1,
+    shadowColor: "#34C759",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 5,
+    minHeight: 50,
   },
   nextButtonText: {
     color: "white",
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
+    textAlign: "center",
+    letterSpacing: 0.5,
   },
   loadingContainer: {
     justifyContent: "center",
@@ -453,4 +548,13 @@ const styles = StyleSheet.create({
     color: "#666",
     marginBottom: 20,
   },
+  iconButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  icon: {
+    marginRight: 8,
+  }  
 });
