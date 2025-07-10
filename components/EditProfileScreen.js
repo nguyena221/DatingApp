@@ -222,7 +222,7 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
                     if (savedWidgets && savedWidgets.length > 0) {
                         setSelectedWidgets(savedWidgets);
                     } else {
-                        setSelectedWidgets(['travel', 'movies', 'books', 'foodie', 'tvshows', 'fitnessgoals']);
+                        setSelectedWidgets(['travel', 'movies', 'books', 'foodie', 'tvshows', 'fitness', 'hobbies']);
                     }
                 }
 
@@ -276,7 +276,6 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
                         description: 'Creative pursuits and talents',
                         emoji: '🎨',
                         color: ['#8360c3', '#2ebf91'],
-                        comingSoon: true
                     },
                     {
                         id: 'goals',
