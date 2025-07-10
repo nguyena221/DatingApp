@@ -19,11 +19,13 @@ import {
   orderBy,
   doc,
   getDoc,
+  getDocs,
+  limit,
   deleteDoc,
 } from "firebase/firestore";
 import { LinearGradient } from "expo-linear-gradient";
 import { db } from "../backend/FirebaseConfig";
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons } from "@expo/vector-icons";
 
 // Utility to darken a hex color
 const darkenHexColor = (hex, factor = 0.8) => {
@@ -60,7 +62,31 @@ export default function MessagesScreen() {
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       const chatData = await Promise.all(
         snapshot.docs.map(async (docSnap) => {
-          const chat = { id: docSnap.id, ...docSnap.data() };
+          const chatId = docSnap.id;
+          const chat = { id: chatId, ...docSnap.data() };
+
+          // Get latest message
+          const messagesRef = collection(db, "chats", chatId, "messages");
+          const messagesQuery = query(
+            messagesRef,
+            orderBy("timestamp", "desc"),
+            limit(1)
+          );
+
+          let lastMessage = "No Messages Available";
+          let lastSender = "";
+
+          try {
+            const messageSnap = await getDocs(messagesQuery);
+            if (!messageSnap.empty) {
+              const messageData = messageSnap.docs[0].data();
+              lastMessage = messageData.text || "";
+              lastSender = messageData.sender || "";
+            }
+          } catch (err) {
+            console.error("Error fetching last message:", err);
+          }
+
           const otherUser = chat.participants.find(
             (p) => p !== currentUserEmail
           );
@@ -85,6 +111,13 @@ export default function MessagesScreen() {
             console.error("Error fetching user data:", err);
           }
 
+          const prefix =
+            lastSender === currentUserEmail
+              ? "You: "
+              : lastSender
+              ? `${displayName.split(" ")[0]}: `
+              : ""; // if no sender, no prefix
+
           return {
             ...chat,
             otherUserEmail: otherUser,
@@ -92,6 +125,7 @@ export default function MessagesScreen() {
             profilePhoto,
             backgroundColor,
             darkerBackgroundColor: darkenHexColor(backgroundColor),
+            lastMessage: prefix + lastMessage,
           };
         })
       );
