@@ -36,6 +36,9 @@ export async function storeUser(user) {
     birthDate: user.birthDate,
     gender: user.gender,
     sexualOrientation: user.sexualOrientation,
+    avatarType: 'happy', // Default avatar
+    avatarName: 'Happy',
+    lastAvatarUpdate: new Date().toISOString()
   });
 }
 
@@ -87,7 +90,11 @@ export async function getUserWithPersonality(email) {
     const userData = docSnap.data();
     return { 
       success: true, 
-      user: userData,
+      user: {
+        ...userData,
+        avatarType: userData.avatarType || 'happy', // Include avatar data
+        avatarName: userData.avatarName || 'Happy'
+      },
       hasPersonalityData: !!userData.personalityData,
       hasLifestyleData: !!userData.personalityLifestyleData
     };
@@ -764,5 +771,50 @@ export async function getUserWidgetData(email, widgetType) {
   } catch (error) {
     console.error(`Error getting ${widgetType} widget data:`, error);
     return { success: false, message: "Failed to get widget data" };
+  }
+}
+
+
+// Add these functions to your existing UserService.js
+
+export async function storeUserAvatar(email, avatarData) {
+  try {
+    const userID = sanitizeEmail(email);
+    const userDocRef = doc(db, "users", userID);
+    
+    await updateDoc(userDocRef, {
+      avatarType: avatarData.id,
+      avatarName: avatarData.name,
+      lastAvatarUpdate: new Date().toISOString()
+    });
+    
+    console.log("User avatar stored successfully");
+    return { success: true, message: "Avatar saved!" };
+  } catch (error) {
+    console.error("Error storing user avatar:", error);
+    return { success: false, message: "Failed to save avatar" };
+  }
+}
+
+export async function getUserAvatar(email) {
+  try {
+    const userID = sanitizeEmail(email);
+    const docRef = doc(db, "users", userID);
+    const docSnap = await getDoc(docRef);
+
+    if (!docSnap.exists()) {
+      return { success: false, message: "User not found" };
+    }
+
+    const userData = docSnap.data();
+    
+    return { 
+      success: true, 
+      avatarType: userData.avatarType || 'happy', // Default to happy
+      avatarName: userData.avatarName || 'Happy'
+    };
+  } catch (error) {
+    console.error("Error getting user avatar:", error);
+    return { success: false, message: "Failed to get avatar" };
   }
 }

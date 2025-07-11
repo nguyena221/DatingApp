@@ -5,7 +5,6 @@ import {
   View,
   SafeAreaView,
   TouchableOpacity,
-  Image,
 } from "react-native";
 import React, { useState, useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
@@ -25,6 +24,7 @@ import { useUser } from "../contexts/UserContext";
 import SettingsPage from "./SettingsPage";
 import { useNavigation } from "@react-navigation/native";
 import ViewUserProfile from "./ViewUserProfile";
+import FaceAvatarDisplay from "../components/FaceAvatarDisplay";
 
 const DiscoverStack = createNativeStackNavigator();
 
@@ -88,22 +88,19 @@ function DiscoverMainScreen({ navigation }) {
         if (userData.email !== currentUser?.email) {
           // Filter based on gender preference
           const userGender = userData.gender;
-
-          if (genderPreference === "Both") {
-            profiles.push({
-              id: doc.id,
-              ...userData,
-            });
-          } else if (genderPreference === "Male" && userGender === "Male") {
-            profiles.push({
-              id: doc.id,
-              ...userData,
-            });
-          } else if (genderPreference === "Female" && userGender === "Female") {
-            profiles.push({
-              id: doc.id,
-              ...userData,
-            });
+          
+          const profileData = {
+            id: doc.id,
+            ...userData,
+            avatarType: userData.avatarType || 'happy', // Ensure avatar is included
+          };
+          
+          if (genderPreference === 'Both') {
+            profiles.push(profileData);
+          } else if (genderPreference === 'Male' && userGender === 'Male') {
+            profiles.push(profileData);
+          } else if (genderPreference === 'Female' && userGender === 'Female') {
+            profiles.push(profileData);
           }
         }
       });
@@ -257,16 +254,11 @@ function DiscoverMainScreen({ navigation }) {
           >
             <View style={styles.photoContainer}>
               <View style={styles.photoFrame}>
-                {currentProfile.profilePhotoURL ? (
-                  <Image
-                    source={{ uri: currentProfile.profilePhotoURL }}
-                    style={styles.profilePhoto}
-                  />
-                ) : (
-                  <View style={styles.placeholderPhoto}>
-                    <Ionicons name="person" size={60} color="#ccc" />
-                  </View>
-                )}
+                <FaceAvatarDisplay 
+                  avatarType={currentProfile.avatarType || 'happy'} 
+                  size={120} 
+                  showBorder={true} 
+                />
               </View>
             </View>
 

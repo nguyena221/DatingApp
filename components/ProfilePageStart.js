@@ -4,7 +4,6 @@ import {
   View,
   SafeAreaView,
   TouchableOpacity,
-  Image,
   StatusBar,
   Animated,
   Dimensions,
@@ -16,12 +15,13 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getUserWithPersonality, calculateAge } from "../backend/UserService";
 import { useUser } from "../contexts/UserContext";
 import LogoutButton from "../components/LogoutButton";
+import FaceAvatarDisplay from "../components/FaceAvatarDisplay";
 
 const { height } = Dimensions.get("window");
 
 export default function ProfilePageStart({ scrollY }) {
   const [bgColor, setBgColor] = useState("#ffffff");
-  const [photoUrl, setPhotoUrl] = useState("");
+  const [selectedAvatar, setSelectedAvatar] = useState("happy");
   const [selectedBanners, setSelectedBanners] = useState([]);
   const [userName, setUserName] = useState("Loading Name...");
   const [userAgeGender, setUserAgeGender] = useState("Loading...");
@@ -35,32 +35,6 @@ export default function ProfilePageStart({ scrollY }) {
         extrapolate: "clamp",
       })
     : 1;
-
-  const getProfilePhoto = async () => {
-    try {
-      const userEmail = currentUser?.email || "test2@example.com"; // Use actual user email
-      const result = await getUserWithPersonality(userEmail);
-
-      if (result.success && result.user && result.user.profilePhotoURL) {
-        return result.user.profilePhotoURL;
-      } else {
-        let response = await fetch("https://picsum.photos/200/20");
-        return response.url;
-      }
-    } catch (error) {
-      console.error("Error loading profile photo:", error);
-      let response = await fetch("https://picsum.photos/200/20");
-      return response.url;
-    }
-  };
-
-  useEffect(() => {
-    const loadPhoto = async () => {
-      const url = await getProfilePhoto();
-      setPhotoUrl(url);
-    };
-    loadPhoto();
-  }, [currentUser]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -82,6 +56,15 @@ export default function ProfilePageStart({ scrollY }) {
             // Set user name
             if (result.user.firstName && result.user.lastName) {
               setUserName(`${result.user.firstName} ${result.user.lastName}`);
+            }
+
+            // Load avatar from database
+            if (result.user.avatarType) {
+              console.log("🎭 Loading avatar from database:", result.user.avatarType);
+              setSelectedAvatar(result.user.avatarType);
+            } else {
+              console.log("🎭 No avatar found, using default");
+              setSelectedAvatar('happy');
             }
 
             // Calculate and format age, gender display
@@ -158,6 +141,7 @@ export default function ProfilePageStart({ scrollY }) {
             }
             setUserAgeGender("N/A");
             setSelectedBanners([]);
+            setSelectedAvatar('happy');
           }
         } catch (e) {
           console.error("Failed to load user data", e);
@@ -173,6 +157,7 @@ export default function ProfilePageStart({ scrollY }) {
           }
           setUserAgeGender("N/A");
           setSelectedBanners([]);
+          setSelectedAvatar('happy');
         }
       };
       loadUserData();
@@ -207,16 +192,11 @@ export default function ProfilePageStart({ scrollY }) {
 
           <View style={styles.photoContainer}>
             <View style={styles.photoFrame}>
-              {photoUrl ? (
-                <Image
-                  source={{ uri: photoUrl }}
-                  style={{ width: "100%", height: "100%" }}
-                />
-              ) : (
-                <View style={styles.loadingText}>
-                  <Text>Loading...</Text>
-                </View>
-              )}
+              <FaceAvatarDisplay 
+                avatarType={selectedAvatar} 
+                size={170} 
+                showBorder={true} 
+              />
             </View>
           </View>
 

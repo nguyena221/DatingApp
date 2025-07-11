@@ -1,37 +1,41 @@
-import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, Image, StatusBar, Dimensions, ScrollView, Alert } from 'react-native';
+import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, StatusBar, Dimensions, ScrollView, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useUser } from '../contexts/UserContext';
-import * as ImagePicker from 'expo-image-picker';
+import FaceAvatarPicker from '../components/FaceAvatarPicker';
+import FaceAvatarDisplay from '../components/FaceAvatarDisplay';
 import { 
     getUserWithPersonality, 
     storeSelectedBanners, 
-    uploadProfilePhoto, 
     storeProfileBackgroundColor, 
     calculateAge, 
     storeSelectedWidgets,
-    initializeWidgetData
+    initializeWidgetData,
+    storeUserAvatar,
+    getUserAvatar
 } from '../backend/UserService';
 
 const { height } = Dimensions.get('window');
 
 export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd', onColorChange }) {
-    const [photoUrl, setPhotoUrl] = useState('');
+    // State variables
+    const [selectedAvatar, setSelectedAvatar] = useState('happy');
     const [currentBgColor, setCurrentBgColor] = useState(selectedColor);
     const [personalityData, setPersonalityData] = useState(null);
     const [lifestyleData, setLifestyleData] = useState(null);
     const [availableBanners, setAvailableBanners] = useState([]);
     const [selectedBanners, setSelectedBanners] = useState([]);
     const [quizStatus, setQuizStatus] = useState({ personality: false, lifestyle: false });
-    const [uploading, setUploading] = useState(false);
-    const [userName, setUserName] = useState('Sarah Johnson');
-    const [userAge, setUserAge] = useState('24');
+    const [userName, setUserName] = useState('Loading...');
+    const [userAge, setUserAge] = useState('Loading...');
     const [originalBgColor, setOriginalBgColor] = useState(selectedColor);
+    const [originalAvatar, setOriginalAvatar] = useState('happy');
     const { currentUser } = useUser();
     const [availableWidgets, setAvailableWidgets] = useState([]);
     const [selectedWidgets, setSelectedWidgets] = useState([]);
 
+    // Color options
     const colorOptions = [
         { name: 'Light Blue', color: '#e3f2fd', id: 1 },
         { name: 'Lavender', color: '#f3e5f5', id: 2 },
@@ -43,6 +47,7 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
         { name: 'Light Yellow', color: '#fff9c4', id: 8 },
     ];
 
+    // Helper function to generate banners from quiz data
     const generateBannersFromData = (personalityData, lifestyleData) => {
         const banners = [];
 
@@ -147,41 +152,21 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
         return banners;
     };
 
-    const getProfilePhoto = async () => {
-        try {
-            // First try to load user's saved photo from database
-            const userEmail = currentUser?.email || "test2@example.com";
-            const result = await getUserWithPersonality(userEmail);
-            
-            if (result.success && result.user && result.user.profilePhotoURL) {
-                return result.user.profilePhotoURL;
-            } else {
-                // Fallback to random photo
-                const response = await fetch("https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=400&fit=crop&crop=face");
-                return response.url;
-            }
-        } catch (error) {
-            console.error("Error loading profile photo:", error);
-            const response = await fetch("https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=400&fit=crop&crop=face");
-            return response.url;
-        }
-    };
-
-    useEffect(() => {
-        const loadPhoto = async () => {
-            const url = await getProfilePhoto();
-            setPhotoUrl(url);
-        };
-        loadPhoto();
-    }, []);
-
+    // Load user data on component mount
     useEffect(() => {
         const loadUserData = async () => {
             try {
-                const userEmail = currentUser?.email || "test2@example.com";
+                const userEmail = currentUser?.email;
+                if (!userEmail) {
+                    console.log("No user logged in");
+                    setUserName("Not Logged In");
+                    setUserAge("N/A");
+                    return;
+                }
 
-                // Load personality data
+                // Load user data including avatar
                 const personalityResult = await getUserWithPersonality(userEmail);
+                
                 let personalityQuizData = null;
                 let lifestyleQuizData = null;
 
@@ -191,6 +176,8 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
 
                     if (personalityResult.user.firstName && personalityResult.user.lastName) {
                         setUserName(`${personalityResult.user.firstName} ${personalityResult.user.lastName}`);
+                    } else {
+                        setUserName("Unknown User");
                     }
 
                     if (personalityResult.user.birthDate) {
@@ -224,6 +211,15 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
                     } else {
                         setSelectedWidgets(['travel', 'tvshows', 'books', 'fitness']);
                     }
+                }
+
+                // Load avatar from the main user data instead of separate call
+                if (personalityResult.user.avatarType) {
+                    setSelectedAvatar(personalityResult.user.avatarType);
+                    setOriginalAvatar(personalityResult.user.avatarType);
+                } else {
+                    setSelectedAvatar('happy');
+                    setOriginalAvatar('happy');
                 }
 
                 // Define available widgets
@@ -306,17 +302,16 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
             } catch (error) {
                 console.error('Error loading user data:', error);
                 setUserAge("N/A");
+                setUserName("Error Loading");
             }
         };
 
         loadUserData();
-    }, []);
+    }, [currentUser]);
 
+    // Handler functions
     const handleColorChange = (color) => {
-        // Only change the UI color, don't save to database or AsyncStorage yet
         setCurrentBgColor(color);
-        
-        // Update parent component for immediate UI feedback if needed
         if (onColorChange) {
             onColorChange(color);
         }
@@ -330,64 +325,20 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
         }
     };
 
-    const handlePhotoEdit = async () => {
-        try {
-            // Request permission to access camera roll
-            const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-            
-            if (permissionResult.granted === false) {
-                Alert.alert("Permission Required", "You need to allow camera roll access to change your photo.");
-                return;
-            }
-
-            // Launch image picker
-            const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                allowsEditing: true,
-                aspect: [1, 1], // Square aspect ratio
-                quality: 0.8,
-            });
-
-            if (!result.canceled && result.assets[0]) {
-                setUploading(true);
-                
-                // Upload photo to Firebase
-                const userEmail = currentUser?.email || "test2@example.com";
-                const uploadResult = await uploadProfilePhoto(userEmail, result.assets[0].uri);
-                
-                if (uploadResult.success) {
-                    setPhotoUrl(uploadResult.photoURL);
-                    Alert.alert("Success", "Profile photo updated!");
-                } else {
-                    Alert.alert("Error", uploadResult.message);
-                }
-                
-                setUploading(false);
-            }
-        } catch (error) {
-            console.error("Error selecting photo:", error);
-            Alert.alert("Error", "Failed to select photo.");
-            setUploading(false);
-        }
-    };
-
     const handleWidgetToggle = async (widget) => {
-        if (widget.comingSoon) return; // Don't allow selection of coming soon widgets
+        if (widget.comingSoon) return;
         
-        const userEmail = currentUser?.email || "test2@example.com";
+        const userEmail = currentUser?.email;
+        if (!userEmail) {
+            Alert.alert('Error', 'No user logged in');
+            return;
+        }
         
         if (selectedWidgets.includes(widget.id)) {
-            // Remove widget if already selected
             setSelectedWidgets(selectedWidgets.filter(id => id !== widget.id));
-            
-            // Note: We don't delete widget data when deselecting - it stays in database
-            // This way when user re-selects the widget, their data is preserved
-            
         } else if (selectedWidgets.length < 4) {
-            // Add widget if less than 4 selected
             setSelectedWidgets([...selectedWidgets, widget.id]);
             
-            // Initialize widget data if it doesn't exist yet
             try {
                 const initResult = await initializeWidgetData(userEmail, widget.id);
                 if (initResult.success) {
@@ -396,9 +347,7 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
             } catch (error) {
                 console.error(`Error initializing ${widget.id} widget:`, error);
             }
-            
         } else {
-            // Show alert if trying to select more than 4
             Alert.alert(
                 "Maximum Widgets Selected",
                 "You can only select 4 widgets. Please deselect one first.",
@@ -409,11 +358,33 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
 
     const handleSave = async () => {
         try {
-            const userEmail = currentUser?.email || "test2@example.com";
+            const userEmail = currentUser?.email;
+            if (!userEmail) {
+                Alert.alert('Error', 'No user logged in');
+                return;
+            }
+            
+            // Save avatar if changed
+            if (selectedAvatar !== originalAvatar) {
+                const faceOptions = {
+                    happy: { id: 'happy', name: 'Happy' },
+                    cool: { id: 'cool', name: 'Cool' },
+                    curious: { id: 'curious', name: 'Curious' },
+                    mischievous: { id: 'mischievous', name: 'Mischievous' },
+                    determined: { id: 'determined', name: 'Determined' }
+                };
+                
+                const avatarResult = await storeUserAvatar(userEmail, faceOptions[selectedAvatar]);
+                if (avatarResult.success) {
+                    console.log("Avatar saved successfully");
+                    setOriginalAvatar(selectedAvatar);
+                } else {
+                    console.error("Failed to save avatar:", avatarResult.message);
+                }
+            }
             
             // Save selected banners to database
             const bannersResult = await storeSelectedBanners(userEmail, selectedBanners);
-            
             if (bannersResult.success) {
                 console.log("Banners saved successfully");
             } else {
@@ -422,11 +393,9 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
             
             // Save selected widgets to database
             const widgetsResult = await storeSelectedWidgets(userEmail, selectedWidgets);
-            
             if (widgetsResult.success) {
                 console.log("Widgets saved successfully");
                 
-                // Initialize widget data for any newly selected widgets
                 for (const widgetId of selectedWidgets) {
                     try {
                         await initializeWidgetData(userEmail, widgetId);
@@ -434,7 +403,6 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
                         console.error(`Error initializing ${widgetId} widget:`, error);
                     }
                 }
-                
             } else {
                 console.error("Failed to save widgets:", widgetsResult.message);
             }
@@ -442,14 +410,13 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
             // Save background color to database if it changed
             if (currentBgColor !== originalBgColor) {
                 const colorResult = await storeProfileBackgroundColor(userEmail, currentBgColor);
-                
                 if (colorResult.success) {
                     console.log("Background color saved successfully");
                     await AsyncStorage.setItem('profileBackgroundColor', currentBgColor);
                     setOriginalBgColor(currentBgColor);
                 } else {
                     console.error("Failed to save background color:", colorResult.message);
-                    Alert.alert("Warning", "Profile banners saved, but background color failed to save.");
+                    Alert.alert("Warning", "Profile saved, but background color failed to save.");
                 }
             }
             
@@ -464,11 +431,11 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
     };
 
     const handleCancel = async () => {
-        // Revert background color to original
+        // Revert changes
         setCurrentBgColor(originalBgColor);
+        setSelectedAvatar(originalAvatar);
         
         try {
-            // Only revert AsyncStorage if we actually changed something
             if (currentBgColor !== originalBgColor) {
                 await AsyncStorage.setItem('profileBackgroundColor', originalBgColor);
                 if (onColorChange) {
@@ -522,6 +489,7 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
         return null;
     };
 
+    // Render component
     return (
         <View style={styles.fullContainer}>
             <StatusBar backgroundColor={currentBgColor} barStyle="dark-content" />
@@ -544,27 +512,22 @@ export default function EditProfileScreen({ navigation, selectedColor = '#e3f2fd
                     </View>
 
                     <ScrollView style={styles.scrollContainer}>
-                        {/* Photo Section with Edit Icon */}
+                        {/* Avatar Section */}
                         <View style={styles.photoContainer}>
                             <View style={styles.photoFrame}>
-                                {photoUrl ? (
-                                    <Image source={{ uri: photoUrl }} style={{ width: '100%', height: '100%' }} />
-                                ) : (
-                                    <View style={styles.loadingText}>
-                                        <Text>{uploading ? "Uploading..." : "Loading..."}</Text>
-                                    </View>
-                                )}
-                                <TouchableOpacity 
-                                    style={[styles.editPhotoIcon, uploading && styles.disabledIcon]} 
-                                    onPress={handlePhotoEdit}
-                                    disabled={uploading}
-                                >
-                                    <Text style={styles.editPhotoIconText}>
-                                        {uploading ? "..." : "✎"}
-                                    </Text>
-                                </TouchableOpacity>
+                                <FaceAvatarDisplay 
+                                    avatarType={selectedAvatar} 
+                                    size={170} 
+                                    showBorder={true} 
+                                />
                             </View>
                         </View>
+
+                        {/* Avatar Selection */}
+                        <FaceAvatarPicker 
+                            onSelectAvatar={(face) => setSelectedAvatar(face.id)}
+                            selectedAvatar={selectedAvatar}
+                        />
 
                         {/* Profile Info */}
                         <View style={styles.profileInfoContainer}>
@@ -758,40 +721,10 @@ const styles = StyleSheet.create({
     photoFrame: {
         width: 170,
         height: 170,
-        borderRadius: 100,
-        overflow: 'hidden',
-        borderWidth: 2,
-        borderColor: '#ddd',
-        position: 'relative',
-    },
-    editPhotoIcon: {
-        position: 'absolute',
-        bottom: 60,
-        right: 60,
-        backgroundColor: 'rgba(0,0,0,0.7)',
-        width: 42,
-        height: 42,
-        borderRadius: 21,
         justifyContent: 'center',
         alignItems: 'center',
-        borderWidth: 2,
-        borderColor: 'white',
     },
-    editPhotoIconText: { 
-        color: 'white', 
-        fontSize: 12, 
-        fontWeight: 'bold',
-        textAlign: 'center',
-        includeFontPadding: false,
-        textAlignVertical: 'center',
-    },
-    loadingText: { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' },
     profileInfoContainer: { flex: 1, marginTop: 23, paddingBottom: 50 },
-    profileInfoNameContainer: { alignItems: 'center', marginBottom: 20 },
-    editableField: { alignItems: 'center', padding: 8, borderRadius: 8, marginBottom: 10 },
-    nameText: { fontSize: 24, fontWeight: 'bold', color: '#333', marginBottom: 2 },
-    ageText: { fontSize: 18, color: '#666', marginBottom: 2 },
-    editHint: { fontSize: 12, color: '#999', fontStyle: 'italic' },
     colorPickerContainer: { paddingHorizontal: 20, marginBottom: 30 },
     colorPickerTitle: { fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 15, textAlign: 'center' },
     colorOptionsContainer: {
@@ -932,9 +865,8 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
     },
-    disabledIcon: {
-        opacity: 0.5,
-    },
+    
+    // Widget selection styles
     widgetContainer: {
         paddingHorizontal: 20,
         marginBottom: 30,
@@ -961,9 +893,8 @@ const styles = StyleSheet.create({
         marginBottom: 0,
     },
     widgetOption: {
-        width: '48%', // 2 widgets per row
-        borderRadius: 15, // Keep this for the shadow shape
-        // Remove overflow: 'hidden' to allow shadow to show
+        width: '48%',
+        borderRadius: 15,
         marginBottom: 15,
     },
     selectedWidget: {
@@ -977,8 +908,8 @@ const styles = StyleSheet.create({
         padding: 16,
         minHeight: 120,
         position: 'relative',
-        borderRadius: 15, // Move the visual borderRadius here
-        overflow: 'hidden', // Move overflow hidden to the gradient to clip content
+        borderRadius: 15,
+        overflow: 'hidden',
     },
     comingSoonWidget: {
         opacity: 0.6,
