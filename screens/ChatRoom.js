@@ -110,6 +110,7 @@ export default function ChatRoom({ route }) {
         const otherCount = currentCounts[otherUser] || 0;
 
         await updateDoc(chatRef, {
+          lastSender: currentUserEmail,
           lastMessage: input.trim(),
           lastTimestamp: serverTimestamp(),
           unreadCount: {

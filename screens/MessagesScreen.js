@@ -14,16 +14,15 @@ import { useNavigation } from "@react-navigation/native";
 import {
   collection,
   query,
-  where,
   onSnapshot,
   orderBy,
   doc,
   getDoc,
   getDocs,
-  limit,
   updateDoc,
   deleteDoc,
   writeBatch,
+  limit
 } from "firebase/firestore";
 import { LinearGradient } from "expo-linear-gradient";
 import { db } from "../backend/FirebaseConfig";
@@ -53,150 +52,141 @@ export default function MessagesScreen() {
 
   useEffect(() => {
     if (!currentUserEmail) return;
-
-    const q = query(
-      collection(db, "chats"),
-      orderBy("lastTimestamp", "desc")
-    );
-
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
-      const rawChats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      const visibleChats = rawChats.filter(chat => chat.visibility?.[currentUserEmail]);
-
-      const chatData = await Promise.all(
-        visibleChats.map(async (chat) => {
-          const chatId = chat.id;
-
-          const messagesRef = collection(db, "chats", chatId, "messages");
-          const messagesQuery = query(
-            messagesRef,
-            orderBy("timestamp", "desc"),
-            limit(1)
+  
+    const q = query(collection(db, "chats"), orderBy("lastTimestamp", "desc"));
+  
+    const unsubscribeChats = onSnapshot(q, async (snapshot) => {
+      const chatSnapshots = snapshot.docs.filter(
+        (doc) => doc.data().visibility?.[currentUserEmail]
+      );
+  
+      const unsubscribers = [];
+  
+      const enrichedChats = await Promise.all(
+        chatSnapshots.map(async (chatDoc) => {
+          const chatData = chatDoc.data();
+          const chatId = chatDoc.id;
+          const otherUser = chatData.participants.find(
+            (p) => p !== currentUserEmail
           );
-
-          let lastMessage = "No Messages Available";
-          let lastSender = "";
-
-          try {
-            const messageSnapPromise = new Promise((resolve) => {
-              const unsubscribeMessage = onSnapshot(
-                messagesQuery,
-                (messageSnap) => {
-                  let msg = "No Messages Available";
-                  let sender = "";
-
-                  if (!messageSnap.empty) {
-                    const messageData = messageSnap.docs[0].data();
-                    msg = messageData.text || "No Messages Available";
-                    sender = messageData.sender || "";
-                  }
-
-                  unsubscribeMessage();
-                  resolve({ msg, sender });
-                },
-                (error) => {
-                  console.error("Error fetching last message in real-time:", error);
-                  resolve({ msg: "No Messages Available", sender: "" });
-                }
-              );
-            });
-
-            const { msg, sender } = await messageSnapPromise;
-            lastMessage = msg;
-            lastSender = sender;
-          } catch (err) {
-            console.error("Error fetching last message:", err);
-          }
-
-          const otherUser = chat.participants.find((p) => p !== currentUserEmail);
-
+  
           let displayName = otherUser;
           let profilePhoto = null;
           let backgroundColor = "#ffffff";
-
+  
           try {
             const userDoc = await getDoc(
               doc(db, "users", otherUser.replace(/\./g, "_"))
             );
             if (userDoc.exists()) {
               const userData = userDoc.data();
-              displayName = `${userData.firstName || ""} ${userData.lastName || ""}`.trim();
+              displayName = `${userData.firstName || ""} ${
+                userData.lastName || ""
+              }`.trim();
               profilePhoto = userData.profilePhotoURL || null;
               backgroundColor = userData.profileBackgroundColor || "#ffffff";
             }
           } catch (err) {
-            console.error("Error fetching user data:", err);
+            console.error("Error fetching user info:", err);
           }
-
-          const prefix =
-            lastSender === currentUserEmail
-              ? "You: "
-              : lastSender
-              ? `${displayName.split(" ")[0]}: `
-              : "";
-
-          return {
-            ...chat,
-            otherUserEmail: otherUser,
-            displayName,
-            profilePhoto,
-            backgroundColor,
-            darkerBackgroundColor: darkenHexColor(backgroundColor),
-            lastMessage: prefix + lastMessage,
-          };
+  
+          // Real-time listener for latest message
+          const messagesRef = collection(db, "chats", chatId, "messages");
+          const latestMessageQuery = query(
+            messagesRef,
+            orderBy("timestamp", "desc"),
+            limit(1)
+          );
+  
+          const messageUnsub = onSnapshot(latestMessageQuery, (msgSnap) => {
+            let lastMessageText = "No messages yet";
+            let lastMessageSender = "";
+  
+            if (!msgSnap.empty) {
+              const message = msgSnap.docs[0].data();
+              lastMessageText = message.text || "";
+              lastMessageSender = message.sender;
+            }
+  
+            let prefix = "";
+            if (lastMessageSender === currentUserEmail) {
+              prefix = "You: ";
+            } else if (lastMessageSender) {
+              const firstName = displayName.split(" ")[0];
+              prefix = `${firstName}: `;
+            }
+  
+            setChats((prev) => {
+              const updated = prev.filter((c) => c.id !== chatId);
+              return [
+                {
+                  id: chatId,
+                  otherUserEmail: otherUser,
+                  displayName,
+                  profilePhoto,
+                  backgroundColor,
+                  darkerBackgroundColor: darkenHexColor(backgroundColor),
+                  lastMessage: prefix + lastMessageText,
+                },
+                ...updated,
+              ];
+            });
+          });
+  
+          unsubscribers.push(messageUnsub);
+  
+          return null; // placeholder to satisfy map
         })
       );
-
-      console.log("📡 Updated chat list:", chatData);
-      setChats(chatData);
-      setLoading(false);
+  
+      // On cleanup, unsubscribe all message listeners
+      return () => unsubscribers.forEach((unsub) => unsub());
     });
-
-    return () => unsubscribe();
-  }, [currentUserEmail]);
+  
+    return () => unsubscribeChats();
+  }, [currentUserEmail]);  
+  
 
   const confirmDeleteChat = (chatId) => {
-    Alert.alert(
-      "Delete Chat",
-      "Are you sure you want to delete this conversation?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              setLoading(true);
-              const chatRef = doc(db, "chats", chatId);
-              const chatSnap = await getDoc(chatRef);
-              if (chatSnap.exists()) {
-                const data = chatSnap.data();
-                const newVisibility = { ...data.visibility, [currentUserEmail]: false };
+    Alert.alert("Delete Chat", "Are you sure you want to delete this conversation?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            setLoading(true);
+            const chatRef = doc(db, "chats", chatId);
+            const chatSnap = await getDoc(chatRef);
+            if (chatSnap.exists()) {
+              const data = chatSnap.data();
+              const newVisibility = {
+                ...data.visibility,
+                [currentUserEmail]: false,
+              };
 
-                await updateDoc(chatRef, {
-                  visibility: newVisibility,
-                });
+              await updateDoc(chatRef, {
+                visibility: newVisibility,
+              });
 
-                // Check if both users have hidden the chat
-                const allHidden = Object.values(newVisibility).every((v) => v === false);
-                if (allHidden) {
-                  const messagesRef = collection(db, "chats", chatId, "messages");
-                  const messagesSnap = await getDocs(messagesRef);
-                  const batch = writeBatch(db);
-                  messagesSnap.forEach((doc) => batch.delete(doc.ref));
-                  batch.delete(chatRef);
-                  await batch.commit();
-                }
+              const allHidden = Object.values(newVisibility).every((v) => v === false);
+              if (allHidden) {
+                const messagesRef = collection(db, "chats", chatId, "messages");
+                const messagesSnap = await getDocs(messagesRef);
+                const batch = writeBatch(db);
+                messagesSnap.forEach((doc) => batch.delete(doc.ref));
+                batch.delete(chatRef);
+                await batch.commit();
               }
-            } catch (error) {
-              console.error("❌ Error hiding/deleting chat:", error);
-            } finally {
-              setLoading(false);
             }
-          },
+          } catch (error) {
+            console.error("❌ Error hiding/deleting chat:", error);
+          } finally {
+            setLoading(false);
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const renderItem = ({ item }) => (

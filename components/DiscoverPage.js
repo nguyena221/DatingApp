@@ -5,6 +5,8 @@ import {
   View,
   SafeAreaView,
   TouchableOpacity,
+  Image,
+  Alert,
 } from "react-native";
 import React, { useState, useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,6 +19,7 @@ import {
   query,
   where,
   serverTimestamp,
+  doc
 } from "firebase/firestore";
 import { db } from "../backend/FirebaseConfig";
 import { calculateAge, getUserWithPersonality } from "../backend/UserService";
@@ -141,7 +144,25 @@ function DiscoverMainScreen({ navigation }) {
         const existingChatDoc = existingChats.docs[0];
         chatId = existingChatDoc.id;
 
-        // Patch missing fields for old chats
+        // Optional: Show alert instead of navigating directly
+        Alert.alert(
+          "Chat Already Exists",
+          "You already have a conversation with this user.",
+          [
+            {
+              text: "Go to Chat",
+              onPress: () =>
+                navigation.navigate("ChatRoom", {
+                  chatId,
+                  otherUser: targetEmail,
+                  currentUserEmail: currentEmail,
+                }),
+            },
+            { text: "Cancel", style: "cancel" },
+          ]
+        );
+
+        // Optionally patch missing fields
         const existingData = existingChatDoc.data();
         const chatRef = doc(db, "chats", chatId);
         const updates = {};
@@ -167,25 +188,27 @@ function DiscoverMainScreen({ navigation }) {
         if (Object.keys(updates).length > 0) {
           await updateDoc(chatRef, updates);
         }
-      } else {
-        // Create new chat
-        const newChatDoc = await addDoc(chatsRef, {
-          participants: [currentEmail, targetEmail],
-          lastTimestamp: serverTimestamp(),
-          lastMessage: "",
-          visibility: {
-            [currentEmail]: true,
-            [targetEmail]: true,
-          },
-          unreadCount: {
-            [currentEmail]: 0,
-            [targetEmail]: 0,
-          },
-        });
-        chatId = newChatDoc.id;
+
+        return; // Stop further execution since chat already exists
       }
 
-      // Navigate to chat screen
+      // No chat found — create new
+      const newChatDoc = await addDoc(chatsRef, {
+        participants: [currentEmail, targetEmail],
+        lastTimestamp: serverTimestamp(),
+        lastMessage: "",
+        visibility: {
+          [currentEmail]: true,
+          [targetEmail]: true,
+        },
+        unreadCount: {
+          [currentEmail]: 0,
+          [targetEmail]: 0,
+        },
+      });
+      chatId = newChatDoc.id;
+
+      // Navigate to new chat
       navigation.navigate("ChatRoom", {
         chatId,
         otherUser: targetEmail,
