@@ -22,7 +22,7 @@ import {
   updateDoc,
   deleteDoc,
   writeBatch,
-  limit
+  limit,
 } from "firebase/firestore";
 import { LinearGradient } from "expo-linear-gradient";
 import { db } from "../backend/FirebaseConfig";
@@ -52,28 +52,35 @@ export default function MessagesScreen() {
 
   useEffect(() => {
     if (!currentUserEmail) return;
-  
+
     const q = query(collection(db, "chats"), orderBy("lastTimestamp", "desc"));
-  
+
     const unsubscribeChats = onSnapshot(q, async (snapshot) => {
       const chatSnapshots = snapshot.docs.filter(
         (doc) => doc.data().visibility?.[currentUserEmail]
       );
-  
+
+      // ✅ Fix: exit early if no chats
+      if (chatSnapshots.length === 0) {
+        setChats([]);
+        setLoading(false);
+        return;
+      }
+
       const unsubscribers = [];
-  
-      const enrichedChats = await Promise.all(
+
+      await Promise.all(
         chatSnapshots.map(async (chatDoc) => {
           const chatData = chatDoc.data();
           const chatId = chatDoc.id;
           const otherUser = chatData.participants.find(
             (p) => p !== currentUserEmail
           );
-  
+
           let displayName = otherUser;
           let profilePhoto = null;
           let backgroundColor = "#ffffff";
-  
+
           try {
             const userDoc = await getDoc(
               doc(db, "users", otherUser.replace(/\./g, "_"))
@@ -89,25 +96,24 @@ export default function MessagesScreen() {
           } catch (err) {
             console.error("Error fetching user info:", err);
           }
-  
-          // Real-time listener for latest message
+
           const messagesRef = collection(db, "chats", chatId, "messages");
           const latestMessageQuery = query(
             messagesRef,
             orderBy("timestamp", "desc"),
             limit(1)
           );
-  
+
           const messageUnsub = onSnapshot(latestMessageQuery, (msgSnap) => {
             let lastMessageText = "No messages yet";
             let lastMessageSender = "";
-  
+
             if (!msgSnap.empty) {
               const message = msgSnap.docs[0].data();
               lastMessageText = message.text || "";
               lastMessageSender = message.sender;
             }
-  
+
             let prefix = "";
             if (lastMessageSender === currentUserEmail) {
               prefix = "You: ";
@@ -115,7 +121,7 @@ export default function MessagesScreen() {
               const firstName = displayName.split(" ")[0];
               prefix = `${firstName}: `;
             }
-  
+
             setChats((prev) => {
               const updated = prev.filter((c) => c.id !== chatId);
               return [
@@ -131,21 +137,19 @@ export default function MessagesScreen() {
                 ...updated,
               ];
             });
+
+            setLoading(false); // ensure loading ends after message loads
           });
-  
+
           unsubscribers.push(messageUnsub);
-  
-          return null; // placeholder to satisfy map
         })
       );
-  
-      // On cleanup, unsubscribe all message listeners
+
       return () => unsubscribers.forEach((unsub) => unsub());
     });
-  
+
     return () => unsubscribeChats();
-  }, [currentUserEmail]);  
-  
+  }, [currentUserEmail]);
 
   const confirmDeleteChat = (chatId) => {
     Alert.alert("Delete Chat", "Are you sure you want to delete this conversation?", [
@@ -243,6 +247,11 @@ export default function MessagesScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Messages</Text>
+      {chats.length === 0 && (
+        <Text style={{ textAlign: "center", color: "#777", marginTop: 20 }}>
+          You have no messages yet.
+        </Text>
+      )}
       <FlatList
         data={chats}
         keyExtractor={(item) => item.id}
@@ -322,15 +331,9 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     borderRadius: 20,
-    color: "#000",
     justifyContent: "center",
     alignItems: "center",
     width: 30,
     height: 30,
-  },
-  deleteText: {
-    color: "white",
-    fontWeight: "bold",
-    fontSize: 16,
   },
 });
