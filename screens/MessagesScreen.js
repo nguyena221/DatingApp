@@ -107,13 +107,13 @@ export default function MessagesScreen() {
           const messageUnsub = onSnapshot(latestMessageQuery, (msgSnap) => {
             let lastMessageText = "No messages yet";
             let lastMessageSender = "";
-
+          
             if (!msgSnap.empty) {
               const message = msgSnap.docs[0].data();
               lastMessageText = message.text || "";
               lastMessageSender = message.sender;
             }
-
+          
             let prefix = "";
             if (lastMessageSender === currentUserEmail) {
               prefix = "You: ";
@@ -121,7 +121,11 @@ export default function MessagesScreen() {
               const firstName = displayName.split(" ")[0];
               prefix = `${firstName}: `;
             }
-
+          
+            // ✅ Use chatData.visibility instead of trying to get it again
+            const isVisible = chatData.visibility?.[currentUserEmail];
+            if (!isVisible) return;
+          
             setChats((prev) => {
               const updated = prev.filter((c) => c.id !== chatId);
               return [
@@ -138,9 +142,9 @@ export default function MessagesScreen() {
                 ...updated,
               ];
             });
-
+          
             setLoading(false);
-          });
+          });          
 
           unsubscribers.push(messageUnsub);
         })
