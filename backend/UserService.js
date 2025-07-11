@@ -818,3 +818,43 @@ export async function getUserAvatar(email) {
     return { success: false, message: "Failed to get avatar" };
   }
 }
+
+export async function clearChatUnreadCount(chatId, userEmail) {
+  try {
+    const chatRef = doc(db, "chats", chatId);
+    await updateDoc(chatRef, {
+      [`unreadCount.${userEmail}`]: 0
+    });
+    
+    console.log("Unread count cleared successfully");
+    return { success: true, message: "Unread count cleared!" };
+  } catch (error) {
+    console.error("Error clearing unread count:", error);
+    return { success: false, message: "Failed to clear unread count" };
+  }
+}
+
+export async function incrementChatUnreadCount(chatId, userEmail) {
+  try {
+    const chatRef = doc(db, "chats", chatId);
+    const chatSnap = await getDoc(chatRef);
+    
+    if (chatSnap.exists()) {
+      const data = chatSnap.data();
+      const currentCounts = data.unreadCount || {};
+      const currentCount = currentCounts[userEmail] || 0;
+      
+      await updateDoc(chatRef, {
+        [`unreadCount.${userEmail}`]: currentCount + 1
+      });
+      
+      console.log("Unread count incremented successfully");
+      return { success: true, message: "Unread count updated!" };
+    }
+    
+    return { success: false, message: "Chat not found" };
+  } catch (error) {
+    console.error("Error incrementing unread count:", error);
+    return { success: false, message: "Failed to update unread count" };
+  }
+}

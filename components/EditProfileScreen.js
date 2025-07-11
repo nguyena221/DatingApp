@@ -723,6 +723,7 @@ const styles = StyleSheet.create({
         height: 170,
         justifyContent: 'center',
         alignItems: 'center',
+        left: 0,
     },
     profileInfoContainer: { flex: 1, marginTop: 23, paddingBottom: 50 },
     colorPickerContainer: { paddingHorizontal: 20, marginBottom: 30 },

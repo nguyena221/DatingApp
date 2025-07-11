@@ -40,6 +40,7 @@ export default function MessagesScreen() {
   const [currentUserEmail, setCurrentUserEmail] = useState(null);
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [hiddenBadges, setHiddenBadges] = useState(new Set()); // Track which badges to hide
   const navigation = useNavigation();
 
   useEffect(() => {
@@ -104,7 +105,28 @@ export default function MessagesScreen() {
             limit(1)
           );
 
-          const messageUnsub = onSnapshot(latestMessageQuery, (msgSnap) => {
+          const messageUnsub = onSnapshot(latestMessageQuery, async (msgSnap) => {
+            // 🟢 Re-fetch the chat document to get current visibility
+            try {
+              const currentChatSnap = await getDoc(doc(db, "chats", chatId));
+              if (!currentChatSnap.exists()) {
+                // Chat has been completely deleted, remove from UI
+                setChats((prev) => prev.filter((c) => c.id !== chatId));
+                return;
+              }
+              
+              const currentChatData = currentChatSnap.data();
+              const isVisible = currentChatData.visibility?.[currentUserEmail];
+              
+              if (!isVisible) {
+                // Chat is hidden for this user, remove from UI
+                setChats((prev) => prev.filter((c) => c.id !== chatId));
+                return;
+              }
+              
+              // Update unread count from fresh data
+              const currentUnreadCount = currentChatData.unreadCount?.[currentUserEmail] || 0;
+            
             let lastMessageText = "No messages yet";
             let lastMessageSender = "";
           
@@ -122,10 +144,6 @@ export default function MessagesScreen() {
               prefix = `${firstName}: `;
             }
           
-            // ✅ Use chatData.visibility instead of trying to get it again
-            const isVisible = chatData.visibility?.[currentUserEmail];
-            if (!isVisible) return;
-          
             setChats((prev) => {
               const updated = prev.filter((c) => c.id !== chatId);
               return [
@@ -137,13 +155,18 @@ export default function MessagesScreen() {
                   backgroundColor,
                   darkerBackgroundColor: darkenHexColor(backgroundColor),
                   lastMessage: prefix + lastMessageText,
-                  unreadCount,
+                  unreadCount: currentUnreadCount, // Use fresh unread count
                 },
                 ...updated,
               ];
             });
           
             setLoading(false);
+            } catch (error) {
+              console.error("Error checking chat visibility:", error);
+              // On error, remove from UI to be safe
+              setChats((prev) => prev.filter((c) => c.id !== chatId));
+            }
           });          
 
           unsubscribers.push(messageUnsub);
@@ -155,6 +178,19 @@ export default function MessagesScreen() {
 
     return () => unsubscribeChats();
   }, [currentUserEmail]);
+
+  // 🟢 NEW FUNCTION: Hide badge and navigate to chat
+  const handleChatPress = (chatId, otherUserEmail) => {
+    // Add this chat to the hidden badges set
+    setHiddenBadges(prev => new Set([...prev, chatId]));
+    
+    // Navigate to the chat room
+    navigation.navigate("ChatRoom", {
+      chatId,
+      otherUser: otherUserEmail,
+      currentUserEmail,
+    });
+  };
 
   const confirmDeleteChat = (chatId) => {
     Alert.alert("Delete Chat", "Are you sure you want to delete this conversation?", [
@@ -205,13 +241,7 @@ export default function MessagesScreen() {
   const renderItem = ({ item }) => (
     <View style={{ position: "relative" }}>
       <TouchableOpacity
-        onPress={() =>
-          navigation.navigate("ChatRoom", {
-            chatId: item.id,
-            otherUser: item.otherUserEmail,
-            currentUserEmail,
-          })
-        }
+        onPress={() => handleChatPress(item.id, item.otherUserEmail)}
       >
         <LinearGradient
           colors={[item.backgroundColor, item.darkerBackgroundColor]}
@@ -242,7 +272,7 @@ export default function MessagesScreen() {
               </Text>
             </View>
 
-            {item.unreadCount > 0 && (
+            {item.unreadCount > 0 && !hiddenBadges.has(item.id) && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>{item.unreadCount}</Text>
               </View>

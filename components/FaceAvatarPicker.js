@@ -53,11 +53,13 @@ const FaceAvatarPicker = ({ onSelectAvatar, selectedAvatar }) => {
       <Text style={styles.subtitle}>Pick a face that represents your personality</Text>
       
       <View style={styles.faceGrid}>
-        {faceOptions.map((face) => (
+        {faceOptions.map((face, index) => (
           <TouchableOpacity
             key={face.id}
             style={[
               styles.faceOption,
+              // Special styling for the last item (determined) to take full width
+              index === 4 && styles.lastFaceOption,
               selectedAvatar === face.id && styles.selectedFace
             ]}
             onPress={() => onSelectAvatar(face)}
@@ -69,8 +71,14 @@ const FaceAvatarPicker = ({ onSelectAvatar, selectedAvatar }) => {
               end={{ x: 1, y: 1 }}
             >
               <Text style={styles.faceEmoji}>{face.face}</Text>
-              <Text style={styles.faceName}>{face.name}</Text>
-              <Text style={styles.faceDescription}>{face.description}</Text>
+              <Text style={[
+                styles.faceName,
+                face.id === 'determined' && styles.whiteText
+              ]}>{face.name}</Text>
+              <Text style={[
+                styles.faceDescription,
+                face.id === 'determined' && styles.whiteText
+              ]}>{face.description}</Text>
               
               {selectedAvatar === face.id && (
                 <View style={styles.selectedCheckmark}>
@@ -88,6 +96,7 @@ const FaceAvatarPicker = ({ onSelectAvatar, selectedAvatar }) => {
 const styles = StyleSheet.create({
   container: {
     padding: 20,
+    paddingBottom: 30, // Extra padding at bottom to prevent clipping
   },
   title: {
     fontSize: 18,
@@ -105,45 +114,48 @@ const styles = StyleSheet.create({
   faceGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
-    justifyContent: 'center',
+    justifyContent: 'space-between', // Better spacing distribution
+    paddingHorizontal: 8, // Add some horizontal padding
   },
   faceOption: {
-    width: '45%',
+    width: '47%', // Slightly smaller to ensure proper spacing
     borderRadius: 20,
     overflow: 'hidden',
-    marginBottom: 12,
+    marginBottom: 16, // Increased margin for better spacing
+  },
+  lastFaceOption: {
+    width: '47%', // Keep consistent width instead of full width
+    alignSelf: 'center', // Center the last item
   },
   selectedFace: {
-    // Remove: borderWidth: 3,
-    // Remove: borderColor: '#007AFF',
-    // Add shadow instead:
     shadowColor: '#007AFF',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.8,
     shadowRadius: 4,
     elevation: 8,
-    },
+  },
   faceGradient: {
-    padding: 20,
+    padding: 16, // Reduced padding to fit better
     alignItems: 'center',
-    minHeight: 120,
+    minHeight: 110, // Slightly reduced height
     position: 'relative',
+    justifyContent: 'center', // Center content vertically
   },
   faceEmoji: {
-    fontSize: 40,
-    marginBottom: 8,
+    fontSize: 36, // Slightly smaller emoji
+    marginBottom: 6,
   },
   faceName: {
-    fontSize: 16,
+    fontSize: 15, // Slightly smaller font
     fontWeight: '600',
     color: '#333',
-    marginBottom: 4,
+    marginBottom: 3,
   },
   faceDescription: {
-    fontSize: 12,
+    fontSize: 11, // Smaller description text
     color: '#666',
     textAlign: 'center',
+    lineHeight: 14, // Better line spacing
   },
   selectedCheckmark: {
     position: 'absolute',
@@ -160,6 +172,9 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  whiteText: {
+    color: 'white',
   },
 });
 
