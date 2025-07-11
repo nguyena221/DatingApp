@@ -91,22 +91,6 @@ function DiscoverMainScreen({ navigation }) {
         if (userData.email !== currentUser?.email) {
           // Filter based on gender preference
           const userGender = userData.gender;
-
-          if (genderPreference === "Both") {
-            profiles.push({
-              id: doc.id,
-              ...userData,
-            });
-          } else if (genderPreference === "Male" && userGender === "Male") {
-            profiles.push({
-              id: doc.id,
-              ...userData,
-            });
-          } else if (genderPreference === "Female" && userGender === "Female") {
-            profiles.push({
-              id: doc.id,
-              ...userData,
-            });
           
           const profileData = {
             id: doc.id,
