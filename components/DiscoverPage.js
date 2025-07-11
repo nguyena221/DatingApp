@@ -5,7 +5,6 @@ import {
   View,
   SafeAreaView,
   TouchableOpacity,
-  Image,
   Alert,
 } from "react-native";
 import React, { useState, useEffect } from "react";
@@ -19,7 +18,8 @@ import {
   query,
   where,
   serverTimestamp,
-  doc
+  doc,
+  updateDoc
 } from "firebase/firestore";
 import { db } from "../backend/FirebaseConfig";
 import { calculateAge, getUserWithPersonality } from "../backend/UserService";
@@ -91,6 +91,22 @@ function DiscoverMainScreen({ navigation }) {
         if (userData.email !== currentUser?.email) {
           // Filter based on gender preference
           const userGender = userData.gender;
+
+          if (genderPreference === "Both") {
+            profiles.push({
+              id: doc.id,
+              ...userData,
+            });
+          } else if (genderPreference === "Male" && userGender === "Male") {
+            profiles.push({
+              id: doc.id,
+              ...userData,
+            });
+          } else if (genderPreference === "Female" && userGender === "Female") {
+            profiles.push({
+              id: doc.id,
+              ...userData,
+            });
           
           const profileData = {
             id: doc.id,
