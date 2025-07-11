@@ -4,7 +4,6 @@ import {
   View,
   SafeAreaView,
   TouchableOpacity,
-  Image,
   StatusBar,
   Animated,
   Dimensions,
@@ -13,15 +12,16 @@ import { LinearGradient } from "expo-linear-gradient";
 import React, { useState, useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { calculateAge } from "../backend/UserService";
+import FaceAvatarDisplay from "../components/FaceAvatarDisplay";
 
 const { height } = Dimensions.get("window");
 
 export default function ViewUserProfileStart({ userData, scrollY, navigation }) {
   const [bgColor, setBgColor] = useState("#e3f2fd");
-  const [photoUrl, setPhotoUrl] = useState("");
+  const [selectedAvatar, setSelectedAvatar] = useState("happy");
   const [selectedBanners, setSelectedBanners] = useState([]);
   const [userName, setUserName] = useState("Loading Name...");
-  const [userAge, setUserAge] = useState("Loading...");
+  const [userAgeGender, setUserAgeGender] = useState("Loading...");
 
   const exploreMoreOpacity = scrollY
     ? scrollY.interpolate({
@@ -33,17 +33,18 @@ export default function ViewUserProfileStart({ userData, scrollY, navigation }) 
 
   useEffect(() => {
     if (userData) {
+      console.log("🎭 ViewUserProfile received userData:", userData);
+      
       // Set background color
       setBgColor(userData.profileBackgroundColor || "#e3f2fd");
 
-      // Set profile photo
-      if (userData.profilePhotoURL) {
-        setPhotoUrl(userData.profilePhotoURL);
+      // Set avatar from database
+      if (userData.avatarType) {
+        console.log("🎭 Loading avatar from userData:", userData.avatarType);
+        setSelectedAvatar(userData.avatarType);
       } else {
-        // Use placeholder image
-        fetch("https://picsum.photos/200/200")
-          .then(response => setPhotoUrl(response.url))
-          .catch(() => setPhotoUrl(""));
+        console.log("🎭 No avatar found, using default");
+        setSelectedAvatar('happy');
       }
 
       // Set user name
@@ -53,21 +54,38 @@ export default function ViewUserProfileStart({ userData, scrollY, navigation }) 
         setUserName("Anonymous User");
       }
 
-      // Calculate and set age
+      // Calculate and format age, gender display
+      let ageDisplay = "N/A";
+      let genderDisplay = "N/A";
+
       if (userData.birthDate) {
         try {
           const age = calculateAge(userData.birthDate);
           if (age && !isNaN(age) && age > 0) {
-            setUserAge(age.toString());
+            ageDisplay = age.toString();
           } else {
-            setUserAge("N/A");
+            ageDisplay = "N/A";
           }
         } catch (error) {
           console.error("Error calculating age:", error);
-          setUserAge("N/A");
+          ageDisplay = "N/A";
         }
+      }
+
+      // Get gender from database
+      if (userData.gender && userData.gender.trim() !== "") {
+        genderDisplay = userData.gender;
+      }
+
+      // Format the combined display
+      if (ageDisplay !== "N/A" && genderDisplay !== "N/A") {
+        setUserAgeGender(`${ageDisplay}, ${genderDisplay}`);
+      } else if (ageDisplay !== "N/A") {
+        setUserAgeGender(`Age: ${ageDisplay}`);
+      } else if (genderDisplay !== "N/A") {
+        setUserAgeGender(genderDisplay);
       } else {
-        setUserAge("N/A");
+        setUserAgeGender("N/A");
       }
 
       // Set selected banners
@@ -107,23 +125,18 @@ export default function ViewUserProfileStart({ userData, scrollY, navigation }) 
         >
           <View style={styles.photoContainer}>
             <View style={styles.photoFrame}>
-              {photoUrl ? (
-                <Image
-                  source={{ uri: photoUrl }}
-                  style={{ width: "100%", height: "100%" }}
-                />
-              ) : (
-                <View style={styles.loadingText}>
-                  <Ionicons name="person" size={60} color="#ccc" />
-                </View>
-              )}
+              <FaceAvatarDisplay 
+                avatarType={selectedAvatar} 
+                size={170} 
+                showBorder={true} 
+              />
             </View>
           </View>
 
           <View style={styles.profileInfoContainer}>
             <View style={styles.profileInfoNameContainer}>
               <Text style={styles.nameText}>{userName}</Text>
-              <Text style={styles.ageText}>Age: {userAge}</Text>
+              <Text style={styles.ageText}>{userAgeGender}</Text>
             </View>
             <View style={{bottom:20, right: 155}}>
               <Text style={styles.sectionText}>Stats</Text>
@@ -245,6 +258,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderWidth: 2,
     borderColor: "#ddd",
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingText: {
     width: "100%",

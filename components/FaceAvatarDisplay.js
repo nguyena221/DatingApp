@@ -84,6 +84,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 8,
+    right:5,
+    bottom:5
   },
   gradient: {
     justifyContent: 'center',
