@@ -19,7 +19,7 @@ import {
   where,
   serverTimestamp,
   doc,
-  updateDoc
+  updateDoc,
 } from "firebase/firestore";
 import { db } from "../backend/FirebaseConfig";
 import { calculateAge, getUserWithPersonality } from "../backend/UserService";
@@ -91,18 +91,18 @@ function DiscoverMainScreen({ navigation }) {
         if (userData.email !== currentUser?.email) {
           // Filter based on gender preference
           const userGender = userData.gender;
-          
+
           const profileData = {
             id: doc.id,
             ...userData,
-            avatarType: userData.avatarType || 'happy', // Ensure avatar is included
+            avatarType: userData.avatarType || "happy", // Ensure avatar is included
           };
-          
-          if (genderPreference === 'Both') {
+
+          if (genderPreference === "Both") {
             profiles.push(profileData);
-          } else if (genderPreference === 'Male' && userGender === 'Male') {
+          } else if (genderPreference === "Male" && userGender === "Male") {
             profiles.push(profileData);
-          } else if (genderPreference === 'Female' && userGender === 'Female') {
+          } else if (genderPreference === "Female" && userGender === "Female") {
             profiles.push(profileData);
           }
         }
@@ -142,57 +142,64 @@ function DiscoverMainScreen({ navigation }) {
 
       if (!existingChats.empty) {
         const existingChatDoc = existingChats.docs[0];
+        const existingData = existingChatDoc.data();
         chatId = existingChatDoc.id;
 
-        // Optional: Show alert instead of navigating directly
-        Alert.alert(
-          "Chat Already Exists",
-          "You already have a conversation with this user.",
-          [
-            {
-              text: "Go to Chat",
-              onPress: () =>
-                navigation.navigate("ChatRoom", {
-                  chatId,
-                  otherUser: targetEmail,
-                  currentUserEmail: currentEmail,
-                }),
-            },
-            { text: "Cancel", style: "cancel" },
-          ]
-        );
+        const isVisible = existingData?.visibility?.[currentEmail];
 
-        // Optionally patch missing fields
-        const existingData = existingChatDoc.data();
-        const chatRef = doc(db, "chats", chatId);
-        const updates = {};
+        // 🔥 If chat exists but is hidden from current user, ignore and create a new one
+        if (isVisible === false) {
+          // Do nothing — fall through to create new chat
+        } else {
+          // 🔁 Chat exists and is visible: Alert user and navigate
+          Alert.alert(
+            "Chat Already Exists",
+            "You already have a conversation with this user.",
+            [
+              {
+                text: "Go to Chat",
+                onPress: () =>
+                  navigation.navigate("ChatRoom", {
+                    chatId,
+                    otherUser: targetEmail,
+                    currentUserEmail: currentEmail,
+                  }),
+              },
+              { text: "Cancel", style: "cancel" },
+            ]
+          );
 
-        if (!existingData.visibility) {
-          updates.visibility = {
-            [currentEmail]: true,
-            [targetEmail]: true,
-          };
+          // Optional patch: Add missing fields if they don't exist
+          const chatRef = doc(db, "chats", chatId);
+          const updates = {};
+
+          if (!existingData.visibility) {
+            updates.visibility = {
+              [currentEmail]: true,
+              [targetEmail]: true,
+            };
+          }
+
+          if (!existingData.unreadCount) {
+            updates.unreadCount = {
+              [currentEmail]: 0,
+              [targetEmail]: 0,
+            };
+          }
+
+          if (!("lastMessage" in existingData)) {
+            updates.lastMessage = "";
+          }
+
+          if (Object.keys(updates).length > 0) {
+            await updateDoc(chatRef, updates);
+          }
+
+          return; // exit early
         }
-
-        if (!existingData.unreadCount) {
-          updates.unreadCount = {
-            [currentEmail]: 0,
-            [targetEmail]: 0,
-          };
-        }
-
-        if (!("lastMessage" in existingData)) {
-          updates.lastMessage = "";
-        }
-
-        if (Object.keys(updates).length > 0) {
-          await updateDoc(chatRef, updates);
-        }
-
-        return; // Stop further execution since chat already exists
       }
 
-      // No chat found — create new
+      // ✅ No visible chat found, so create new
       const newChatDoc = await addDoc(chatsRef, {
         participants: [currentEmail, targetEmail],
         lastTimestamp: serverTimestamp(),
@@ -206,11 +213,9 @@ function DiscoverMainScreen({ navigation }) {
           [targetEmail]: 0,
         },
       });
-      chatId = newChatDoc.id;
 
-      // Navigate to new chat
       navigation.navigate("ChatRoom", {
-        chatId,
+        chatId: newChatDoc.id,
         otherUser: targetEmail,
         currentUserEmail: currentEmail,
       });
@@ -277,10 +282,10 @@ function DiscoverMainScreen({ navigation }) {
           >
             <View style={styles.photoContainer}>
               <View style={styles.photoFrame}>
-                <FaceAvatarDisplay 
-                  avatarType={currentProfile.avatarType || 'happy'} 
-                  size={120} 
-                  showBorder={true} 
+                <FaceAvatarDisplay
+                  avatarType={currentProfile.avatarType || "happy"}
+                  size={120}
+                  showBorder={true}
                 />
               </View>
             </View>

@@ -60,7 +60,6 @@ export default function MessagesScreen() {
         (doc) => doc.data().visibility?.[currentUserEmail]
       );
 
-      // ✅ Fix: exit early if no chats
       if (chatSnapshots.length === 0) {
         setChats([]);
         setLoading(false);
@@ -80,6 +79,7 @@ export default function MessagesScreen() {
           let displayName = otherUser;
           let profilePhoto = null;
           let backgroundColor = "#ffffff";
+          let unreadCount = chatData.unreadCount?.[currentUserEmail] || 0;
 
           try {
             const userDoc = await getDoc(
@@ -133,12 +133,13 @@ export default function MessagesScreen() {
                   backgroundColor,
                   darkerBackgroundColor: darkenHexColor(backgroundColor),
                   lastMessage: prefix + lastMessageText,
+                  unreadCount,
                 },
                 ...updated,
               ];
             });
 
-            setLoading(false); // ensure loading ends after message loads
+            setLoading(false);
           });
 
           unsubscribers.push(messageUnsub);
@@ -168,11 +169,14 @@ export default function MessagesScreen() {
                 ...data.visibility,
                 [currentUserEmail]: false,
               };
-
+  
               await updateDoc(chatRef, {
                 visibility: newVisibility,
               });
-
+  
+              // 🟢 Remove from UI right away
+              setChats((prevChats) => prevChats.filter((c) => c.id !== chatId));
+  
               const allHidden = Object.values(newVisibility).every((v) => v === false);
               if (allHidden) {
                 const messagesRef = collection(db, "chats", chatId, "messages");
@@ -192,6 +196,7 @@ export default function MessagesScreen() {
       },
     ]);
   };
+  
 
   const renderItem = ({ item }) => (
     <View style={{ position: "relative" }}>
@@ -210,20 +215,35 @@ export default function MessagesScreen() {
         >
           <View style={styles.chatRow}>
             {item.profilePhoto ? (
-              <Image source={{ uri: item.profilePhoto }} style={styles.avatar} />
+              <Image
+                source={{ uri: item.profilePhoto }}
+                style={styles.avatar}
+              />
             ) : (
               <View style={styles.avatarPlaceholder}>
                 <Text style={styles.initials}>
-                  {item.displayName?.split(" ").map((n) => n[0]).join("").toUpperCase() || "?"}
+                  {item.displayName
+                    ?.split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .toUpperCase() || "?"}
                 </Text>
               </View>
             )}
+
             <View style={styles.chatText}>
               <Text style={styles.chatName}>{item.displayName}</Text>
               <Text style={styles.chatMessage} numberOfLines={1}>
                 {item.lastMessage || "No messages yet"}
               </Text>
             </View>
+
+            {item.unreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{item.unreadCount}</Text>
+              </View>
+            )}
+
             <TouchableOpacity
               onPress={() => confirmDeleteChat(item.id)}
               style={styles.deleteButton}
@@ -291,6 +311,7 @@ const styles = StyleSheet.create({
   chatRow: {
     flexDirection: "row",
     alignItems: "center",
+    position: "relative",
   },
   avatar: {
     width: 52,
@@ -335,5 +356,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     width: 30,
     height: 30,
+  },
+  badge: {
+    backgroundColor: "red",
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    position: "absolute",
+    top: -4,
+    right: 36,
+    zIndex: 1,
+  },
+  badgeText: {
+    color: "white",
+    fontSize: 12,
+    fontWeight: "bold",
   },
 });
